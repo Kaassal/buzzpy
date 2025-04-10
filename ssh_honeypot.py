@@ -1,3 +1,5 @@
+#Everlyline with this comment "Change this" can and should be changed
+#if you want people to interact with the honeypot
 
 # Import libraries
 import logging
@@ -145,4 +147,3 @@ def honeypot(address, port, username, password):
         except Exception as error:
             print(error)
 
-honeypot('127.0.0.1', 2222, username=None, password=None)
