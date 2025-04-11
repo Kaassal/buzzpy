@@ -27,6 +27,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install pylint
 
-      - name: Analysing the code with pylint
+      - name: Run pylint and fail if score < 5.0
         run: |
-          pylint $(git ls-files '*.py')
+          pylint $(git ls-files '*.py') --exit-zero > pylint-report.txt
+          cat pylint-report.txt
+          SCORE=$(tail -n 2 pylint-report.txt | grep -oP 'rated at \K[0-9.]+')
+          echo "Pylint score: $SCORE"
+          if (( $(echo "$SCORE < 5.0" | bc -l) )); then
+            echo "Pylint score is too low (< 5.0)"
+            exit 1
+          fi
