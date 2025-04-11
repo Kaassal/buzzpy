@@ -7,7 +7,7 @@ import paramiko
 
 # Constant variables
 LOGGING_FORMAT = logging.Formatter('%(message)s')
-SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  # Updated to remove 'honeypot'
+SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  #TODO: Add JSON for strings
 HOST_KEY = paramiko.RSAKey(filename='server.key')
 
 # Logging setup for audit and command logs
