@@ -1,6 +1,7 @@
 # Import Libraries
 import argparse
 from ssh_honeypot import *  # Asegúrate de importar correctamente la función honeypot
+from web_honeypot import web_honeypot  # Add this import
 
 # Argument Parsing
 if __name__ == "__main__":
@@ -23,13 +24,9 @@ if __name__ == "__main__":
         if args.ssh:
             print("[-] Running SSH honeypot...")
             honeypot(args.address, args.port, args.username, args.password)  
-            if not args.username:
-                username:None
-            if not args.password:
-                password = None
         elif args.web:  
-            print("[!] Not yet implemented...")  #TODO: Change this when implemented
-            pass  #TODO: Remove this when implemented
+            print("[!] Running web honeypot...") 
+            web_honeypot(args.address, args.port, args.username, args.password)
         else:
             print("[!] No honeypot specified.")
             print("[?] Hint: Run an SSH honeypot using (-s) or (--ssh), check help for all the options" )
