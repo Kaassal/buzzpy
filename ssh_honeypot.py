@@ -7,7 +7,7 @@ import paramiko
 
 # Constant variables
 LOGGING_FORMAT = logging.Formatter('%(message)s')
-SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  # Updated to remove 'honeypot'
+SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  #TODO: Add JSON for strings
 HOST_KEY = paramiko.RSAKey(filename='server.key')
 
 # Logging setup for audit and command logs
@@ -23,46 +23,80 @@ CREDS_HANDLER = RotatingFileHandler('cmd_audits.log', maxBytes=2000, backupCount
 CREDS_HANDLER.setFormatter(LOGGING_FORMAT)
 CREDS_LOGGER.addHandler(CREDS_HANDLER)
 
+SHELL_COMMANDS = {
+    b'pwd': b'/usr/local',
+    b'whoami': b'honeypotuser',
+    b'ls': b'sshHoneypot.conf backup config scripts',
+    b'id': b'uid=1000(honeypotuser) gid=1000(honeypotuser) groups=1000(honeypotuser)',
+    b'uname': b'Linux honeypot 4.15.0-54-generic #58-Ubuntu SMP x86_64 GNU/Linux',
+    b'hostname': b'honeypot-srv01',
+}
+
 def emulated_shell(channel, client_ip):
     """
-    Emulates a shell environment for the SSH honeypot.
+    Emulates a restricted shell environment for the SSH honeypot.
 
     Args:
         channel (paramiko.Channel): The SSH channel.
         client_ip (str): The IP address of the client.
     """
-    channel.send(b'ssh-honeypot$ ')
+    channel.send(b'honeypotuser@honeypot-srv01:~$ ')
     command = b""
     while True:
         char = channel.recv(1)
-        channel.send(char)
+        
+        # Handle disconnection
         if not char:
             channel.close()
             break
 
-        command += char
+        # Handle backspace/delete
+        if char in (b'\x7f', b'\x08'):
+            if command:
+                command = command[:-1]
+                channel.send(b'\x08 \x08')  # Move back, erase, move back
+            continue
+
+        # Echo character
+        channel.send(char)
+        
+        # Handle enter key
         if char == b'\r':
+            channel.send(b'\n')
             command = command.strip()
+            
+            # Handle empty command
+            if not command:
+                channel.send(b'honeypotuser@honeypot-srv01:~$ ')
+                continue
+
+            # Handle exit command
             if command == b'exit':
-                response = b'\nConnection terminated\n'
-                channel.send(response)
+                channel.send(b'logout Connection to honeypot-srv01 closed.\r\n')
                 channel.close()
                 break
-            elif command == b'pwd':
-                response = b"\n/usr/local\r\n"
-            elif command == b'whoami':
-                response = b"\nhoneypotUser1\r\n"
-            elif command == b'ls':
-                response = b'\nsshHoneypot.conf\r\n'
-            elif command == b'cat Honeypot.conf':
-                response = b'\ncat placeholder\r\n'
+
+            # Handle implemented commands
+            if command in SHELL_COMMANDS:
+                response = SHELL_COMMANDS[command] + b'\r\n'
             else:
-                response = b"\n" + command + b"\r\n"
+                # Handle command arguments
+                cmd_parts = command.split(b' ', 1)
+                base_cmd = cmd_parts[0]
+                
+                if base_cmd in (b'sudo', b'su'):
+                    response = b'-rbash: ' + base_cmd + b': command not found in restricted shell\r\n'
+                elif base_cmd in (b'vim', b'nano', b'emacs'):
+                    response = b'-rbash: ' + base_cmd + b': No such file or directory\r\n'
+                else:
+                    response = b'-rbash: ' + base_cmd + b': command not found\r\n'
 
             CREDS_LOGGER.info('Command: %s Client: %s', command, client_ip)
             channel.send(response)
-            channel.send(b'ssh-honeypot$ ')
+            channel.send(b'honeypotuser@honeypot-srv01:~$ ')
             command = b""
+        else:
+            command += char
 
 class Server(paramiko.ServerInterface):
     """
