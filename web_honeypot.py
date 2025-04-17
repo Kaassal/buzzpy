@@ -5,9 +5,9 @@ from logging.handlers import RotatingFileHandler
 
 # Logging setup
 LOGGING_FORMAT = logging.Formatter("%(asctime)s %(message)s")  # Fixed typo in message
-FUNNEL_LOGGER = logging.getLogger("FunnelLogger")
+FUNNEL_LOGGER = logging.getLogger("HttpLogger")
 FUNNEL_LOGGER.setLevel(logging.INFO)
-FUNNEL_HANDLER = RotatingFileHandler("http_audits.log", maxBytes=2000, backupCount=5)
+FUNNEL_HANDLER = RotatingFileHandler("log_files/http_audits.log", maxBytes=2000, backupCount=5)
 FUNNEL_HANDLER.setFormatter(LOGGING_FORMAT)
 FUNNEL_LOGGER.addHandler(FUNNEL_HANDLER)
 

@@ -10,16 +10,16 @@ LOGGING_FORMAT = logging.Formatter('%(message)s')
 SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  #TODO: Add JSON for strings
 HOST_KEY = paramiko.RSAKey(filename='server.key')
 
-# Logging setup for audit and command logs
+# Update logging to ensure proper separation of credentials and commands.
 FUNNEL_LOGGER = logging.getLogger('FunnelLogger')
 FUNNEL_LOGGER.setLevel(logging.INFO)
-FUNNEL_HANDLER = RotatingFileHandler('audits.log', maxBytes=2000, backupCount=5)
+FUNNEL_HANDLER = RotatingFileHandler('log_files/audits.log', maxBytes=2000, backupCount=5)
 FUNNEL_HANDLER.setFormatter(LOGGING_FORMAT)
 FUNNEL_LOGGER.addHandler(FUNNEL_HANDLER)
 
 CREDS_LOGGER = logging.getLogger('CmdLogger')
 CREDS_LOGGER.setLevel(logging.INFO)
-CREDS_HANDLER = RotatingFileHandler('cmd_audits.log', maxBytes=2000, backupCount=5)
+CREDS_HANDLER = RotatingFileHandler('log_files/cmd_audits.log', maxBytes=2000, backupCount=5)
 CREDS_HANDLER.setFormatter(LOGGING_FORMAT)
 CREDS_LOGGER.addHandler(CREDS_HANDLER)
 
@@ -91,7 +91,7 @@ def emulated_shell(channel, client_ip):
                 else:
                     response = b'-rbash: ' + base_cmd + b': command not found\r\n'
 
-            CREDS_LOGGER.info('Command: %s Client: %s', command, client_ip)
+            log_command(command, client_ip)
             channel.send(response)
             channel.send(b'honeypotuser@honeypot-srv01:~$ ')
             command = b""
@@ -119,11 +119,7 @@ class Server(paramiko.ServerInterface):
         return "password"
 
     def check_auth_password(self, username, password):
-        FUNNEL_LOGGER.info(
-            'Client %s connection attempt username: %s, password: %s',
-            self.client_ip, username, password
-        )
-        CREDS_LOGGER.info('%s,%s,%s', self.client_ip, username, password)
+        log_credentials(self.client_ip, username, password)
 
         if self.input_username is not None and self.input_password is not None:
             if username == self.input_username and password == self.input_password:
@@ -208,3 +204,14 @@ def honeypot(address, port, username, password):
             ssh_honeypot_thread.start()
         except Exception as error:
             print(error)
+
+# Ensure only credentials are logged to audits.log.
+def log_credentials(client_ip, username, password):
+    FUNNEL_LOGGER.info(
+        'Client %s connection attempt username: %s, password: %s',
+        client_ip, username, password
+    )
+
+# Ensure only commands are logged to cmd_audits.log.
+def log_command(command, client_ip):
+    CREDS_LOGGER.info('Command: %s Client: %s', command, client_ip)

@@ -1,7 +1,7 @@
 # Import Libraries
 import argparse
-from ssh_honeypot import *  # Asegúrate de importar correctamente la función honeypot
-from web_honeypot import web_honeypot  # Add this import
+from ssh_honeypot import *  
+from web_honeypot import web_honeypot  
 
 # Argument Parsing
 if __name__ == "__main__":
