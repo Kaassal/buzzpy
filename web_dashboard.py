@@ -47,8 +47,8 @@ top_cmds = top_10_calculator(ssh_cmds_log_df, "Command")
 # top_country = top_10_calculator(get_ip_to_country, "Country_Code")
 
 # Python Dash (& Dash Bootstrap) Constants.
-# Load the Cyborg theme from Python Dash Bootstrap.
-load_figure_template(["cyborg"])
+# Load the Solar theme from Python Dash Bootstrap
+load_figure_template(["solar"])
 dbc_css = ("https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4/dbc.min.css")
 
 # Create assets directory and subdirectories if they don't exist
@@ -63,8 +63,8 @@ if logo_path.exists():
 
 
 
-# Declare Dash App, apply CYBORG theme.
-app = Dash(__name__, external_stylesheets=[dbc.themes.CYBORG, dbc_css])
+# Declare Dash App, apply SOLAR theme.
+app = Dash(__name__, external_stylesheets=[dbc.themes.SOLAR, dbc_css])
 # Provide web page title and Favicon.
 app.title = "Buzzpy"
 
