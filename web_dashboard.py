@@ -332,6 +332,27 @@ def create_data_tables(selected_service="all"):
     """Create data tables based on selected service"""
     tables = []
 
+    # Common table style settings
+    table_style = {
+        "style_table": {"overflowX": "auto"},
+        "style_header": {
+            "backgroundColor": "#002b36",
+            "color": "#deb439",
+            "font-weight": "bold",
+        },
+        "style_cell": {
+            "backgroundColor": "#073642",
+            "color": "#deb439",
+            "textAlign": "left",
+        },
+        # Add pagination settings
+        "page_size": 10,  # Number of rows per page
+        "page_action": "native",  # Use built-in pagination
+        "page_current": 0,  # Start at first page
+        "sort_action": "native",  # Enable sorting
+        "sort_mode": "multi",  # Allow sorting by multiple columns
+    }
+
     if selected_service in ["all", "ssh"]:
         # SSH Credentials Table
         if not ssh_creds_log_df.empty:
@@ -345,17 +366,7 @@ def create_data_tables(selected_service="all"):
                                 {"name": i, "id": i} for i in ssh_creds_log_df.columns
                             ],
                             data=ssh_creds_log_df.to_dict("records"),
-                            style_table={"overflowX": "auto"},
-                            style_header={
-                                "backgroundColor": "#002b36",
-                                "color": "#deb439",
-                                "font-weight": "bold",
-                            },
-                            style_cell={
-                                "backgroundColor": "#073642",
-                                "color": "#deb439",
-                                "textAlign": "left",
-                            },
+                            **table_style,
                         ),
                     ]
                 )
@@ -380,17 +391,7 @@ def create_data_tables(selected_service="all"):
                                             for i in ssh_country_df.columns
                                         ],
                                         data=ssh_country_df.to_dict("records"),
-                                        style_table={"overflowX": "auto"},
-                                        style_header={
-                                            "backgroundColor": "#002b36",
-                                            "color": "#deb439",
-                                            "font-weight": "bold",
-                                        },
-                                        style_cell={
-                                            "backgroundColor": "#073642",
-                                            "color": "#deb439",
-                                            "textAlign": "left",
-                                        },
+                                        **table_style,
                                     ),
                                 ]
                             )
@@ -410,17 +411,7 @@ def create_data_tables(selected_service="all"):
                                 {"name": i, "id": i} for i in ssh_cmds_log_df.columns
                             ],
                             data=ssh_cmds_log_df.to_dict("records"),
-                            style_table={"overflowX": "auto"},
-                            style_header={
-                                "backgroundColor": "#002b36",
-                                "color": "#deb439",
-                                "font-weight": "bold",
-                            },
-                            style_cell={
-                                "backgroundColor": "#073642",
-                                "color": "#deb439",
-                                "textAlign": "left",
-                            },
+                            **table_style,
                         ),
                     ]
                 )
@@ -439,17 +430,7 @@ def create_data_tables(selected_service="all"):
                                 {"name": i, "id": i} for i in http_url_log_df.columns
                             ],
                             data=http_url_log_df.to_dict("records"),
-                            style_table={"overflowX": "auto"},
-                            style_header={
-                                "backgroundColor": "#002b36",
-                                "color": "#deb439",
-                                "font-weight": "bold",
-                            },
-                            style_cell={
-                                "backgroundColor": "#073642",
-                                "color": "#deb439",
-                                "textAlign": "left",
-                            },
+                            **table_style,
                         ),
                     ]
                 )
@@ -474,17 +455,7 @@ def create_data_tables(selected_service="all"):
                                             for i in http_country_df.columns
                                         ],
                                         data=http_country_df.to_dict("records"),
-                                        style_table={"overflowX": "auto"},
-                                        style_header={
-                                            "backgroundColor": "#002b36",
-                                            "color": "#deb439",
-                                            "font-weight": "bold",
-                                        },
-                                        style_cell={
-                                            "backgroundColor": "#073642",
-                                            "color": "#deb439",
-                                            "textAlign": "left",
-                                        },
+                                        **table_style,
                                     ),
                                 ]
                             )
