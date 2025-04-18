@@ -10,6 +10,7 @@ import glob
 # Update the log file name to match the new name in ssh_honeypot.py
 creds_audits_log_file = "log_files/audits.log"  # Updated to match the new name
 cmd_audits_log_file = "log_files/ssh_cmd_audits.log"  # Ensure consistency
+http_url_audits_log_file = "log_files/http_url_audits.log"  # New HTTP URL log file
 
 
 # Update the parsers to read all rotated log files.
@@ -56,6 +57,37 @@ def parse_cmd_audits_log(cmd_audits_log_file):
     except Exception as e:
         print(f"Error parsing commands log: {e}")
         return pd.DataFrame(columns=["Command", "Client"])
+
+
+def parse_http_url_audits_log(http_url_audits_log_file):
+    """Parse HTTP URL log file, including rotated files."""
+    try:
+        data = []
+        # Use glob to find all matching log files, including rotated ones
+        log_files = glob.glob(http_url_audits_log_file + "*")
+        for log_file in log_files:
+            with open(log_file, "r") as file:
+                for line in file:
+                    # Parse log format: "Client {ip} | Method: {method} | URL: {url} | Args: {args}"
+                    match = re.match(
+                        r".*?Client (.*?) \| Method: (.*?) \| URL: (.*?) \| Args: (.*)$",
+                        line.strip(),
+                    )
+                    if match:
+                        ip_address, method, url, args = match.groups()
+                        data.append(
+                            {
+                                "ip_address": ip_address,
+                                "method": method,
+                                "url": url,
+                                "args": args,
+                            }
+                        )
+
+        return pd.DataFrame(data)
+    except Exception as e:
+        print(f"Error parsing HTTP URL log: {e}")
+        return pd.DataFrame(columns=["ip_address", "method", "url", "args"])
 
 
 # Calculator to generate top 10 values from a dataframe. Supply a column name, counts how often each value occurs, stores in "count" column, then return dataframe with value/count.
@@ -110,13 +142,34 @@ def get_country_code(ip):
 
 # Takes a dataframe with the IP addresses, converts each IP address to country geolocation code.
 def ip_to_country_code(dataframe):
+    """Convert IP addresses to country codes using the CleanTalk API"""
+    if dataframe.empty or 'ip_address' not in dataframe.columns:
+        print("Warning: Empty dataframe or no ip_address column found")
+        return pd.DataFrame(columns=['IP Address', 'Country_Code'])
 
     data = []
-
-    for ip in dataframe["ip_address"]:
-        get_country = get_country_code(ip)
-        parse_get_country = get_country[0]["Country_Code"]
-        data.append({"IP Address": ip, "Country_Code": parse_get_country})
-
-    df = pd.DataFrame(data)
-    return df
+    
+    try:
+        unique_ips = dataframe['ip_address'].unique()
+        for ip in unique_ips:
+            try:
+                get_country = get_country_code(ip)
+                if get_country and len(get_country) > 0:
+                    parse_get_country = get_country[0].get('Country_Code', 'Unknown')
+                    data.append({
+                        "IP Address": ip,
+                        "Country_Code": parse_get_country if parse_get_country else 'Unknown'
+                    })
+                else:
+                    print(f"Warning: No country data returned for IP {ip}")
+                    data.append({"IP Address": ip, "Country_Code": "Unknown"})
+            except Exception as e:
+                print(f"Error processing IP {ip}: {e}")
+                data.append({"IP Address": ip, "Country_Code": "Error"})
+                
+        df = pd.DataFrame(data)
+        print(f"Created country code table with {len(df)} entries")
+        return df
+    except Exception as e:
+        print(f"Error in ip_to_country_code: {e}")
+        return pd.DataFrame(columns=['IP Address', 'Country_Code'])
