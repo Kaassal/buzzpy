@@ -144,7 +144,10 @@ app.layout = dbc.Container(
                 dbc.Col(
                     dcc.Graph(
                         figure=px.bar(
-                            top_ip_address, y="frequency", title="Top 10 IP Addresses"
+                            top_ip_address,
+                            x="ip_address",
+                            y="frequency",
+                            title="Top 10 IP Addresses"
                         )
                     ),
                     width=4,
@@ -152,7 +155,10 @@ app.layout = dbc.Container(
                 dbc.Col(
                     dcc.Graph(
                         figure=px.bar(
-                            top_usernames, y="frequency", title="Top 10 Usernames"
+                            top_usernames,
+                            x="username",
+                            y="frequency",
+                            title="Top 10 Usernames"
                         )
                     ),
                     width=4,
@@ -160,7 +166,10 @@ app.layout = dbc.Container(
                 dbc.Col(
                     dcc.Graph(
                         figure=px.bar(
-                            top_passwords, y="frequency", title="Top 10 Passwords"
+                            top_passwords,
+                            x="password",
+                            y="frequency",
+                            title="Top 10 Passwords"
                         )
                     ),
                     width=4,
@@ -174,7 +183,12 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     dcc.Graph(
-                        figure=px.bar(top_cmds, y="frequency", title="Top 10 Commands")
+                        figure=px.bar(
+                            top_cmds,
+                            x="Command",
+                            y="frequency",
+                            title="Top 10 Commands"
+                        )
                     ),
                     style={"width": "33%", "display": "inline-block"},
                 ),
@@ -202,4 +216,4 @@ app.layout = dbc.Container(
 )
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+    app.run(debug=True, host="127.0.0.1")
