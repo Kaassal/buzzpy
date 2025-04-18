@@ -143,33 +143,56 @@ def get_country_code(ip):
 # Takes a dataframe with the IP addresses, converts each IP address to country geolocation code.
 def ip_to_country_code(dataframe):
     """Convert IP addresses to country codes using the CleanTalk API"""
-    if dataframe.empty or 'ip_address' not in dataframe.columns:
+    if dataframe.empty or "ip_address" not in dataframe.columns:
         print("Warning: Empty dataframe or no ip_address column found")
-        return pd.DataFrame(columns=['IP Address', 'Country_Code'])
+        return pd.DataFrame(columns=["ip_address", "Country_Code"])
 
+    # First, get the count of each IP address
+    ip_counts = dataframe["ip_address"].value_counts().to_dict()
+    country_counts = {}
     data = []
-    
+
     try:
-        unique_ips = dataframe['ip_address'].unique()
+        unique_ips = dataframe["ip_address"].unique()
         for ip in unique_ips:
             try:
                 get_country = get_country_code(ip)
                 if get_country and len(get_country) > 0:
-                    parse_get_country = get_country[0].get('Country_Code', 'Unknown')
-                    data.append({
-                        "IP Address": ip,
-                        "Country_Code": parse_get_country if parse_get_country else 'Unknown'
-                    })
+                    parse_get_country = get_country[0].get("Country_Code", "Unknown")
+                    # Add the IP count to the country's total
+                    if parse_get_country:
+                        country_counts[parse_get_country] = (
+                            country_counts.get(parse_get_country, 0) + ip_counts[ip]
+                        )
+                    data.append(
+                        {
+                            "ip_address": ip,
+                            "Country_Code": (
+                                parse_get_country if parse_get_country else "Unknown"
+                            ),
+                        }
+                    )
                 else:
                     print(f"Warning: No country data returned for IP {ip}")
-                    data.append({"IP Address": ip, "Country_Code": "Unknown"})
+                    country_counts["Unknown"] = (
+                        country_counts.get("Unknown", 0) + ip_counts[ip]
+                    )
+                    data.append({"ip_address": ip, "Country_Code": "Unknown"})
             except Exception as e:
                 print(f"Error processing IP {ip}: {e}")
-                data.append({"IP Address": ip, "Country_Code": "Error"})
-                
-        df = pd.DataFrame(data)
-        print(f"Created country code table with {len(df)} entries")
-        return df
+                country_counts["Error"] = country_counts.get("Error", 0) + ip_counts[ip]
+                data.append({"ip_address": ip, "Country_Code": "Error"})
+
+        # Create the final DataFrame with country frequency counts and sort by frequency
+        country_df = pd.DataFrame(
+            [
+                {"Country_Code": country, "frequency": count}
+                for country, count in country_counts.items()
+            ]
+        ).sort_values(by="frequency", ascending=False)
+
+        print(f"Created country code table with {len(country_df)} entries")
+        return country_df
     except Exception as e:
         print(f"Error in ip_to_country_code: {e}")
-        return pd.DataFrame(columns=['IP Address', 'Country_Code'])
+        return pd.DataFrame(columns=["Country_Code", "frequency"])

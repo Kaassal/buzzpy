@@ -83,7 +83,6 @@ def create_service_stats(selected_service):
         ssh_cmd_data = top_10_calculator(ssh_cmds_log_df, "Command")
         if country == "True":
             ssh_country_df = ip_to_country_code(ssh_creds_log_df)
-            ssh_country_data = top_10_calculator(ssh_country_df, "Country_Code")
 
     if selected_service == "all" or selected_service == "http":
         http_ip_data = top_10_calculator(http_url_log_df, "ip_address")
@@ -91,7 +90,6 @@ def create_service_stats(selected_service):
         http_method_data = top_10_calculator(http_url_log_df, "method")
         if country == "True":
             http_country_df = ip_to_country_code(http_url_log_df)
-            http_country_data = top_10_calculator(http_country_df, "Country_Code")
 
     graphs = []
 
@@ -165,34 +163,37 @@ def create_service_stats(selected_service):
                 width=6,
             ),
         ]
-        
+
         # Add country code graphs if enabled
         if country == "True":
-            graphs.extend([
-                dbc.Col(
-                    dcc.Graph(
-                        figure=px.bar(
-                            ssh_country_data,
-                            x="Country_Code",
-                            y="frequency",
-                            title="Country Distribution (SSH)",
-                        )
+            # Use the country_df directly since it already contains the frequencies
+            graphs.extend(
+                [
+                    dbc.Col(
+                        dcc.Graph(
+                            figure=px.bar(
+                                ssh_country_df,
+                                x="Country_Code",
+                                y="frequency",
+                                title="Country Distribution (SSH)",
+                            )
+                        ),
+                        width=6,
                     ),
-                    width=6,
-                ),
-                dbc.Col(
-                    dcc.Graph(
-                        figure=px.bar(
-                            http_country_data,
-                            x="Country_Code",
-                            y="frequency",
-                            title="Country Distribution (HTTP)",
-                        )
+                    dbc.Col(
+                        dcc.Graph(
+                            figure=px.bar(
+                                http_country_df,
+                                x="Country_Code",
+                                y="frequency",
+                                title="Country Distribution (HTTP)",
+                            )
+                        ),
+                        width=6,
                     ),
-                    width=6,
-                ),
-            ])
-            
+                ]
+            )
+
         graphs.append(
             dbc.Col(
                 dcc.Graph(
@@ -242,14 +243,15 @@ def create_service_stats(selected_service):
                 width=4,
             ),
         ]
-        
+
         # Add country code graph if enabled
         if country == "True":
+            # Use the country_df directly since it already contains the frequencies
             graphs.append(
                 dbc.Col(
                     dcc.Graph(
                         figure=px.bar(
-                            ssh_country_data,
+                            ssh_country_df,
                             x="Country_Code",
                             y="frequency",
                             title="Country Distribution",
@@ -258,7 +260,7 @@ def create_service_stats(selected_service):
                     width=12,
                 ),
             )
-            
+
         graphs.append(
             dbc.Col(
                 dcc.Graph(
@@ -305,14 +307,15 @@ def create_service_stats(selected_service):
                 width=4,
             ),
         ]
-        
+
         # Add country code graph if enabled
         if country == "True":
+            # Use the country_df directly since it already contains the frequencies
             graphs.append(
                 dbc.Col(
                     dcc.Graph(
                         figure=px.bar(
-                            http_country_data,
+                            http_country_df,
                             x="Country_Code",
                             y="frequency",
                             title="Country Distribution",
@@ -333,25 +336,29 @@ def create_data_tables(selected_service="all"):
         # SSH Credentials Table
         if not ssh_creds_log_df.empty:
             tables.append(
-                html.Div([
-                    html.H4("SSH Credentials Attempts", className="text-center"),
-                    dash_table.DataTable(
-                        id="ssh-creds-table",
-                        columns=[{"name": i, "id": i} for i in ssh_creds_log_df.columns],
-                        data=ssh_creds_log_df.to_dict("records"),
-                        style_table={"overflowX": "auto"},
-                        style_header={
-                            "backgroundColor": "#002b36",
-                            "color": "#deb439",
-                            "font-weight": "bold"
-                        },
-                        style_cell={
-                            "backgroundColor": "#073642",
-                            "color": "#deb439",
-                            "textAlign": "left",
-                        },
-                    ),
-                ])
+                html.Div(
+                    [
+                        html.H4("SSH Credentials Attempts", className="text-center"),
+                        dash_table.DataTable(
+                            id="ssh-creds-table",
+                            columns=[
+                                {"name": i, "id": i} for i in ssh_creds_log_df.columns
+                            ],
+                            data=ssh_creds_log_df.to_dict("records"),
+                            style_table={"overflowX": "auto"},
+                            style_header={
+                                "backgroundColor": "#002b36",
+                                "color": "#deb439",
+                                "font-weight": "bold",
+                            },
+                            style_cell={
+                                "backgroundColor": "#073642",
+                                "color": "#deb439",
+                                "textAlign": "left",
+                            },
+                        ),
+                    ]
+                )
             )
 
             # Add Country Code Table for SSH if enabled
@@ -360,25 +367,33 @@ def create_data_tables(selected_service="all"):
                     ssh_country_df = ip_to_country_code(ssh_creds_log_df)
                     if not ssh_country_df.empty:
                         tables.append(
-                            html.Div([
-                                html.H4("Country Code Distribution (SSH)", className="text-center mt-4"),
-                                dash_table.DataTable(
-                                    id="ssh-country-code-table",
-                                    columns=[{"name": i, "id": i} for i in ssh_country_df.columns],
-                                    data=ssh_country_df.to_dict("records"),
-                                    style_table={"overflowX": "auto"},
-                                    style_header={
-                                        "backgroundColor": "#002b36",
-                                        "color": "#deb439",
-                                        "font-weight": "bold"
-                                    },
-                                    style_cell={
-                                        "backgroundColor": "#073642",
-                                        "color": "#deb439",
-                                        "textAlign": "left",
-                                    },
-                                ),
-                            ])
+                            html.Div(
+                                [
+                                    html.H4(
+                                        "Country Code Distribution (SSH)",
+                                        className="text-center mt-4",
+                                    ),
+                                    dash_table.DataTable(
+                                        id="ssh-country-code-table",
+                                        columns=[
+                                            {"name": i, "id": i}
+                                            for i in ssh_country_df.columns
+                                        ],
+                                        data=ssh_country_df.to_dict("records"),
+                                        style_table={"overflowX": "auto"},
+                                        style_header={
+                                            "backgroundColor": "#002b36",
+                                            "color": "#deb439",
+                                            "font-weight": "bold",
+                                        },
+                                        style_cell={
+                                            "backgroundColor": "#073642",
+                                            "color": "#deb439",
+                                            "textAlign": "left",
+                                        },
+                                    ),
+                                ]
+                            )
                         )
                 except Exception as e:
                     print(f"Error creating SSH country table: {e}")
@@ -386,50 +401,58 @@ def create_data_tables(selected_service="all"):
         # SSH Commands Table
         if not ssh_cmds_log_df.empty:
             tables.append(
-                html.Div([
-                    html.H4("SSH Commands", className="text-center mt-4"),
-                    dash_table.DataTable(
-                        id="ssh-commands-table",
-                        columns=[{"name": i, "id": i} for i in ssh_cmds_log_df.columns],
-                        data=ssh_cmds_log_df.to_dict("records"),
-                        style_table={"overflowX": "auto"},
-                        style_header={
-                            "backgroundColor": "#002b36",
-                            "color": "#deb439",
-                            "font-weight": "bold"
-                        },
-                        style_cell={
-                            "backgroundColor": "#073642",
-                            "color": "#deb439",
-                            "textAlign": "left",
-                        },
-                    ),
-                ])
+                html.Div(
+                    [
+                        html.H4("SSH Commands", className="text-center mt-4"),
+                        dash_table.DataTable(
+                            id="ssh-commands-table",
+                            columns=[
+                                {"name": i, "id": i} for i in ssh_cmds_log_df.columns
+                            ],
+                            data=ssh_cmds_log_df.to_dict("records"),
+                            style_table={"overflowX": "auto"},
+                            style_header={
+                                "backgroundColor": "#002b36",
+                                "color": "#deb439",
+                                "font-weight": "bold",
+                            },
+                            style_cell={
+                                "backgroundColor": "#073642",
+                                "color": "#deb439",
+                                "textAlign": "left",
+                            },
+                        ),
+                    ]
+                )
             )
 
     if selected_service in ["all", "http"]:
         # HTTP URLs Table
         if not http_url_log_df.empty:
             tables.append(
-                html.Div([
-                    html.H4("HTTP Requests", className="text-center mt-4"),
-                    dash_table.DataTable(
-                        id="http-urls-table",
-                        columns=[{"name": i, "id": i} for i in http_url_log_df.columns],
-                        data=http_url_log_df.to_dict("records"),
-                        style_table={"overflowX": "auto"},
-                        style_header={
-                            "backgroundColor": "#002b36",
-                            "color": "#deb439",
-                            "font-weight": "bold"
-                        },
-                        style_cell={
-                            "backgroundColor": "#073642",
-                            "color": "#deb439",
-                            "textAlign": "left",
-                        },
-                    ),
-                ])
+                html.Div(
+                    [
+                        html.H4("HTTP Requests", className="text-center mt-4"),
+                        dash_table.DataTable(
+                            id="http-urls-table",
+                            columns=[
+                                {"name": i, "id": i} for i in http_url_log_df.columns
+                            ],
+                            data=http_url_log_df.to_dict("records"),
+                            style_table={"overflowX": "auto"},
+                            style_header={
+                                "backgroundColor": "#002b36",
+                                "color": "#deb439",
+                                "font-weight": "bold",
+                            },
+                            style_cell={
+                                "backgroundColor": "#073642",
+                                "color": "#deb439",
+                                "textAlign": "left",
+                            },
+                        ),
+                    ]
+                )
             )
 
             # Add Country Code Table for HTTP if enabled
@@ -438,25 +461,33 @@ def create_data_tables(selected_service="all"):
                     http_country_df = ip_to_country_code(http_url_log_df)
                     if not http_country_df.empty:
                         tables.append(
-                            html.Div([
-                                html.H4("Country Code Distribution (HTTP)", className="text-center mt-4"),
-                                dash_table.DataTable(
-                                    id="http-country-code-table",
-                                    columns=[{"name": i, "id": i} for i in http_country_df.columns],
-                                    data=http_country_df.to_dict("records"),
-                                    style_table={"overflowX": "auto"},
-                                    style_header={
-                                        "backgroundColor": "#002b36",
-                                        "color": "#deb439",
-                                        "font-weight": "bold"
-                                    },
-                                    style_cell={
-                                        "backgroundColor": "#073642",
-                                        "color": "#deb439",
-                                        "textAlign": "left",
-                                    },
-                                ),
-                            ])
+                            html.Div(
+                                [
+                                    html.H4(
+                                        "Country Code Distribution (HTTP)",
+                                        className="text-center mt-4",
+                                    ),
+                                    dash_table.DataTable(
+                                        id="http-country-code-table",
+                                        columns=[
+                                            {"name": i, "id": i}
+                                            for i in http_country_df.columns
+                                        ],
+                                        data=http_country_df.to_dict("records"),
+                                        style_table={"overflowX": "auto"},
+                                        style_header={
+                                            "backgroundColor": "#002b36",
+                                            "color": "#deb439",
+                                            "font-weight": "bold",
+                                        },
+                                        style_cell={
+                                            "backgroundColor": "#073642",
+                                            "color": "#deb439",
+                                            "textAlign": "left",
+                                        },
+                                    ),
+                                ]
+                            )
                         )
                 except Exception as e:
                     print(f"Error creating HTTP country table: {e}")
