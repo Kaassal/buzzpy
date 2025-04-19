@@ -48,15 +48,17 @@ dbc_css = (
     "https://cdn.jsdelivr.net/gh/AnnMarieW/dash-bootstrap-templates@V1.0.4/dbc.min.css"
 )
 
+# Source the Buzzpy logo for dashboard
+image = 'buzzpylogo.png'
+
 # Create assets directory and subdirectories if they don't exist
 assets_dir = base_dir / "assets" / "images"
 assets_dir.mkdir(parents=True, exist_ok=True)
 
 # Default to a simple text title if image not found
-image = None
-logo_path = assets_dir / "buzzpy-logo-white.png"
+logo_path = assets_dir / "buzzpylogo.png"
 if logo_path.exists():
-    image = str(logo_path)
+    image = f'assets/images/{image}'  # Use relative path for Dash assets
 
 # Set the value to True in (public.env) if you want country code lookup as default.
 country = os.getenv("COUNTRY", "False")  # Default to False if not set
@@ -65,6 +67,7 @@ print(f"Country code lookup is: {country}")  # Debug print
 # Declare Dash App, apply SOLAR theme.
 app = Dash(__name__, external_stylesheets=[dbc.themes.SOLAR, dbc_css])
 app.title = "Buzzpy"
+app._favicon = "images/buzzpyfavicon.ico"  # Use relative path for favicon
 
 # Service selection dropdown options
 service_options = [
