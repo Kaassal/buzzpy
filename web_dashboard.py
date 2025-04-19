@@ -474,26 +474,27 @@ app.layout = dbc.Container(
     [
         # Honeypot Title and Service Selection
         dbc.Row(
-            [
-                dbc.Col(
-                    html.Div(
-                        [html.Img(src=image, style={"height": "25%", "width": "25%"})],
-                        style={"textAlign": "center"},
-                        className="dbc",
-                    ),
-                    width=8,
+            dbc.Col(
+                html.Div(
+                    [html.Img(src=image, style={"height": "35%", "width": "35%", "padding":"1.25%"})],
+                    style={"textAlign": "center"},
+                    className="dbc mb-4",
                 ),
-                dbc.Col(
-                    dcc.Dropdown(
-                        id="service-selector",
-                        options=service_options,
-                        value="all",
-                        style={"backgroundColor": "#deb439", "color": "#839496"},
-                    ),
-                    width=4,
+                width=12,
+            ),
+            justify="center",
+        ),
+        dbc.Row(
+            dbc.Col(
+                dcc.Dropdown(
+                    id="service-selector",
+                    options=service_options,
+                    value="all",
+                    style={"backgroundColor": "#deb439", "color": "#839496"},
                 ),
-            ],
-            align="center",
+                width=6,
+            ),
+            justify="center",
             class_name="mb-4",
         ),
         # Dynamic Graphs Section
