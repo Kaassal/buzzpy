@@ -96,24 +96,40 @@ def create_service_stats(selected_service):
         http_url_data = top_10_calculator(http_url_log_df, "url")
         http_method_data = top_10_calculator(http_url_log_df, "method")
 
-        # Create URL graph with custom hover template and rotated labels
+        # Create URL graph with improved layout and hover info
         url_fig = go.Figure(data=[
             go.Bar(
                 x=http_url_data['url'],
                 y=http_url_data['frequency'],
-                text=http_url_data['frequency'],
-                textposition='auto',
-                hovertemplate="<b>URL:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>"
+                text=None,
+                showlegend=False,
+                hovertemplate="<b>URL:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>",
             )
         ])
+        
         url_fig.update_layout(
-            title="Top 10 URLs (HTTP)",
-            xaxis={
-                'tickangle': 45,
-                'title': None,
+            template="solar",
+            title={
+                'text': "Top 10 URLs (HTTP)<br><span style='font-size: 12px; color: gray'>Hover over bars to see full URLs</span>",
+                'xanchor': 'left',
+                'yanchor': 'top'
             },
-            yaxis={'title': 'Frequency'},
-            margin={'b': 100}  # Add bottom margin for rotated labels
+            xaxis={
+                'showticklabels': False,
+                'title': 'URLs',
+                'showgrid': False,
+            },
+            yaxis={
+                'title': 'Frequency',
+                'showgrid': True,
+                'gridcolor': '#073642'
+            },
+            height=450,
+            margin={'t': 100, 'b': 50, 'l': 50, 'r': 20},
+            hoverlabel={'align': 'left'},
+            plot_bgcolor='#002b36',  # Solar theme plot background
+            paper_bgcolor='#1e434a', # Solar theme paper background (border)
+            bargap=0.2
         )
 
         if country == "True":
