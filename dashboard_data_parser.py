@@ -81,15 +81,16 @@ def parse_http_url_audits_log(http_url_audits_log_file):
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format: "Client {ip} | Method: {method} | URL: {url} | Args: {args}"
+                    # Parse log format with timestamp
                     match = re.match(
-                        r".*?Client (.*?) \| Method: (.*?) \| URL: (.*?) \| Args: (.*)$",
+                        r"(.*?) Client (.*?) \| Method: (.*?) \| URL: (.*?) \| Args: (.*)$",
                         line.strip(),
                     )
                     if match:
-                        ip_address, method, url, args = match.groups()
+                        timestamp, ip_address, method, url, args = match.groups()
                         data.append(
                             {
+                                "timestamp": timestamp,
                                 "ip_address": ip_address,
                                 "method": method,
                                 "url": url,
@@ -100,11 +101,38 @@ def parse_http_url_audits_log(http_url_audits_log_file):
         return pd.DataFrame(data)
     except Exception as e:
         print(f"Error parsing HTTP URL log: {e}")
-        return pd.DataFrame(columns=["ip_address", "method", "url", "args"])
+        return pd.DataFrame(columns=["timestamp", "ip_address", "method", "url", "args"])
+
+
+def parse_http_creds_audits_log(http_audits_log_file):
+    """Parse HTTP credentials log file, including rotated files."""
+    try:
+        data = []
+        log_files = glob.glob(http_audits_log_file + "*")
+        for log_file in log_files:
+            with open(log_file, "r") as file:
+                for line in file:
+                    # Parse log format with timestamp
+                    match = re.match(
+                        r"(.*?) Client (.*?) attempted login with username: (.*?) and password: (.*?)$",
+                        line.strip(),
+                    )
+                    if match:
+                        timestamp, ip_address, username, password = match.groups()
+                        data.append({
+                            "timestamp": timestamp,
+                            "ip_address": ip_address,
+                            "username": username,
+                            "password": password
+                        })
+        return pd.DataFrame(data)
+    except Exception as e:
+        print(f"Error parsing HTTP credentials log: {e}")
+        return pd.DataFrame(columns=["timestamp", "ip_address", "username", "password"])
 
 
 # Calculator to generate top 10 values from a dataframe. Supply a column name, counts how often each value occurs, stores in "count" column, then return dataframe with value/count.
-def top_10_calculator(dataframe, column):
+def top_10_calculator(dataframe, column, truncate=False, max_length=30):
     """Calculate top 10 values from a column."""
     if dataframe.empty or column not in dataframe.columns:
         return pd.DataFrame({column: ["No Data"], "frequency": [0]})
@@ -112,14 +140,18 @@ def top_10_calculator(dataframe, column):
     # Get value counts and convert to DataFrame with proper column names
     counts = dataframe[column].value_counts().head(10)
     result = pd.DataFrame({column: counts.index, "frequency": counts.values})
-
-    print(f"Debug - DataFrame columns for {column}:", result.columns.tolist())
-    print(
-        f"Debug - First row of data:",
-        result.iloc[0] if not result.empty else "Empty DataFrame",
-    )
+    
+    # Truncate values if requested (e.g., for URLs)
+    if truncate:
+        result[column] = result[column].apply(lambda x: truncate_text(str(x), max_length))
 
     return result
+
+
+# Helper function to truncate long strings
+def truncate_text(text, max_length=30):
+    """Truncate text and add ellipsis if needed"""
+    return text if len(text) <= max_length else text[:max_length] + "..."
 
 
 # Takes an IP address as string type, uses the Cleantalk API to look up IP Geolocation.

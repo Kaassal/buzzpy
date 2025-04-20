@@ -44,13 +44,12 @@ def web_honeypot(address, port=8080, input_username="admin", input_password="pas
 
     @app.route("/")
     def index():
-        return render_template("wp-admin.html")
+        return render_template("wp-admin.html", error=None)
 
     @app.route("/wp-admin-login", methods=["POST"])
     def login():
         username = request.form["username"]
         password = request.form["password"]
-
         ip_address = request.remote_addr
 
         FUNNEL_LOGGER.info(
@@ -60,7 +59,7 @@ def web_honeypot(address, port=8080, input_username="admin", input_password="pas
         if username == input_username and password == input_password:
             return "Login successful!"
         else:
-            return "Login Failed try again"
+            return render_template("wp-admin.html", error="Invalid username or password.")
 
     # Add routes that look like real WordPress paths to attract attackers
     @app.route("/wp-admin")

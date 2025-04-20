@@ -1,8 +1,8 @@
 # Import library dependencies.
-from dash import Dash, html, dash_table, dcc
-from dash.dependencies import Input, Output
+from dash import Dash, html, dash_table, dcc, Input, Output, no_update
 import dash_bootstrap_components as dbc
 import plotly.express as px
+import plotly.graph_objects as go
 from dash_bootstrap_templates import load_figure_template
 from pathlib import Path
 from dotenv import load_dotenv
@@ -20,6 +20,7 @@ log_dir = base_dir / "log_files"
 ssh_creds_log_file_path = log_dir / "audits.log"
 ssh_cmds_log_file_path = log_dir / "cmd_audits.log"
 http_url_log_file_path = log_dir / "http_url_audits.log"
+http_creds_log_file_path = log_dir / "http_audits.log"
 
 # Create log_files directory if it doesn't exist
 log_dir.mkdir(exist_ok=True)
@@ -31,6 +32,8 @@ if not ssh_cmds_log_file_path.exists():
     ssh_cmds_log_file_path.touch()
 if not http_url_log_file_path.exists():
     http_url_log_file_path.touch()
+if not http_creds_log_file_path.exists():
+    http_creds_log_file_path.touch()
 
 # Load dotenv() to capture environment variable.
 dotenv_path = Path("public.env")
@@ -40,6 +43,7 @@ load_dotenv(dotenv_path=dotenv_path)
 ssh_creds_log_df = parse_creds_audits_log(str(ssh_creds_log_file_path))
 ssh_cmds_log_df = parse_cmd_audits_log(str(ssh_cmds_log_file_path))
 http_url_log_df = parse_http_url_audits_log(str(http_url_log_file_path))
+http_creds_log_df = parse_http_creds_audits_log(str(http_creds_log_file_path))
 
 # Python Dash (& Dash Bootstrap) Constants.
 # Load the Solar theme from Python Dash Bootstrap
@@ -91,6 +95,27 @@ def create_service_stats(selected_service):
         http_ip_data = top_10_calculator(http_url_log_df, "ip_address")
         http_url_data = top_10_calculator(http_url_log_df, "url")
         http_method_data = top_10_calculator(http_url_log_df, "method")
+
+        # Create URL graph with custom hover template and rotated labels
+        url_fig = go.Figure(data=[
+            go.Bar(
+                x=http_url_data['url'],
+                y=http_url_data['frequency'],
+                text=http_url_data['frequency'],
+                textposition='auto',
+                hovertemplate="<b>URL:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>"
+            )
+        ])
+        url_fig.update_layout(
+            title="Top 10 URLs (HTTP)",
+            xaxis={
+                'tickangle': 45,
+                'title': None,
+            },
+            yaxis={'title': 'Frequency'},
+            margin={'b': 100}  # Add bottom margin for rotated labels
+        )
+
         if country == "True":
             http_country_df = ip_to_country_code(http_url_log_df)
 
@@ -134,12 +159,7 @@ def create_service_stats(selected_service):
             ),
             dbc.Col(
                 dcc.Graph(
-                    figure=px.bar(
-                        http_url_data,
-                        x="url",
-                        y="frequency",
-                        title="Top 10 URLs (HTTP)",
-                    )
+                    figure=url_fig,
                 ),
                 width=6,
             ),
@@ -292,9 +312,7 @@ def create_service_stats(selected_service):
             ),
             dbc.Col(
                 dcc.Graph(
-                    figure=px.bar(
-                        http_url_data, x="url", y="frequency", title="Top 10 URLs"
-                    )
+                    figure=url_fig,
                 ),
                 width=4,
             ),
@@ -347,6 +365,9 @@ def create_data_tables(selected_service="all"):
             "backgroundColor": "#073642",
             "color": "#deb439",
             "textAlign": "left",
+            "maxWidth": "400px",
+            "whiteSpace": "normal",
+            "wordBreak": "break-word",
         },
         # Add pagination settings
         "page_size": 10,  # Number of rows per page
@@ -421,8 +442,28 @@ def create_data_tables(selected_service="all"):
             )
 
     if selected_service in ["all", "http"]:
+        # HTTP Login Attempts Table
+        if not http_creds_log_df.empty:
+            sorted_creds_df = http_creds_log_df.sort_values(by="timestamp", ascending=False)
+            tables.append(
+                html.Div(
+                    [
+                        html.H4("HTTP Login Attempts", className="text-center mt-4"),
+                        dash_table.DataTable(
+                            id="http-creds-table",
+                            columns=[
+                                {"name": i, "id": i} for i in sorted_creds_df.columns
+                            ],
+                            data=sorted_creds_df.to_dict("records"),
+                            **table_style,
+                        ),
+                    ]
+                )
+            )
+
         # HTTP URLs Table
         if not http_url_log_df.empty:
+            sorted_http_df = http_url_log_df.sort_values(by="timestamp", ascending=False)
             tables.append(
                 html.Div(
                     [
@@ -430,9 +471,9 @@ def create_data_tables(selected_service="all"):
                         dash_table.DataTable(
                             id="http-urls-table",
                             columns=[
-                                {"name": i, "id": i} for i in http_url_log_df.columns
+                                {"name": i, "id": i} for i in sorted_http_df.columns
                             ],
-                            data=http_url_log_df.to_dict("records"),
+                            data=sorted_http_df.to_dict("records"),
                             **table_style,
                         ),
                     ]
