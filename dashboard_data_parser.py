@@ -38,6 +38,17 @@ def parse_creds_audits_log(creds_audits_log_file):
         return pd.DataFrame(columns=["ip_address", "username", "password"])
 
 
+def clean_command_text(command):
+    """Clean command text by removing b prefix and apostrophes"""
+    if isinstance(command, str):
+        # Remove b prefix and clean apostrophes
+        pattern = re.compile(r"^b'(.*)'$|^b\"(.*)\"$|^'(.*)'$|^\"(.*)\"$")
+        match = pattern.match(command)
+        if match:
+            # Return the first non-None group
+            return next(group for group in match.groups() if group is not None)
+    return command
+
 def parse_cmd_audits_log(cmd_audits_log_file):
     """Parse SSH command log file, including rotated files."""
     try:
@@ -51,7 +62,9 @@ def parse_cmd_audits_log(cmd_audits_log_file):
                     match = re.match(r"Command: (.*?) Client: (.*?)$", line.strip())
                     if match:
                         command, ip = match.groups()
-                        data.append({"Command": command, "Client": ip})
+                        # Clean the command text before adding to data
+                        cleaned_command = clean_command_text(command)
+                        data.append({"Command": cleaned_command, "Client": ip})
 
         return pd.DataFrame(data)
     except Exception as e:
