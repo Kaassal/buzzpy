@@ -37,6 +37,18 @@ SHELL_COMMANDS = {
 }
 
 
+def clean_command(command):
+    """Clean command from escape sequences and control characters before logging"""
+    if not command:
+        return command
+    # Remove ANSI escape sequences and control characters
+    escape_chars = [b'\x1b[A', b'\x1b[B', b'\x1b[C', b'\x1b[D', b'\x08', b'\x7f']
+    cleaned = command
+    for esc in escape_chars:
+        cleaned = cleaned.replace(esc, b'')
+    return cleaned.strip()
+
+
 def emulated_shell(channel, client_ip):
     """
     Emulates a restricted shell environment for the SSH honeypot.
@@ -47,6 +59,9 @@ def emulated_shell(channel, client_ip):
     """
     channel.send(b"honeypotuser@honeypot-srv01:~$ ")
     command = b""
+    command_history = []
+    history_index = 0
+    
     while True:
         char = channel.recv(1)
 
@@ -55,19 +70,45 @@ def emulated_shell(channel, client_ip):
             channel.close()
             break
 
+        # Handle special keys
+        if char == b'\x1b':  # ESC sequence
+            next_char = channel.recv(1)
+            if next_char == b'[':
+                arrow = channel.recv(1)
+                if arrow == b'A':  # Up arrow
+                    if command_history and history_index < len(command_history):
+                        # Clear current line
+                        channel.send(b'\x1b[2K\r')
+                        channel.send(b"honeypotuser@honeypot-srv01:~$ ")
+                        history_index = min(history_index + 1, len(command_history))
+                        command = command_history[-history_index]
+                        channel.send(command)
+                elif arrow == b'B':  # Down arrow
+                    if history_index > 0:
+                        # Clear current line
+                        channel.send(b'\x1b[2K\r')
+                        channel.send(b"honeypotuser@honeypot-srv01:~$ ")
+                        history_index = max(history_index - 1, 0)
+                        if history_index == 0:
+                            command = b""
+                        else:
+                            command = command_history[-history_index]
+                        channel.send(command)
+            continue
+
         # Handle backspace/delete
-        if char in (b"\x7f", b"\x08"):
+        if char in (b'\x7f', b'\x08'):
             if command:
                 command = command[:-1]
-                channel.send(b"\x08 \x08")  # Move back, erase, move back
+                channel.send(b'\x08 \x08')  # Move back, erase, move back
             continue
 
         # Echo character
         channel.send(char)
 
         # Handle enter key
-        if char == b"\r":
-            channel.send(b"\n")
+        if char == b'\r':
+            channel.send(b'\n')
             command = command.strip()
 
             # Handle empty command
@@ -75,34 +116,37 @@ def emulated_shell(channel, client_ip):
                 channel.send(b"honeypotuser@honeypot-srv01:~$ ")
                 continue
 
+            # Add command to history if non-empty
+            if command and (not command_history or command != command_history[-1]):
+                command_history.append(command)
+            history_index = 0
+
             # Handle exit command
-            if command == b"exit":
+            if command == b'exit':
                 channel.send(b"logout Connection to honeypot-srv01 closed.\r\n")
                 channel.close()
                 break
 
             # Handle implemented commands
             if command in SHELL_COMMANDS:
-                response = SHELL_COMMANDS[command] + b"\r\n"
+                response = SHELL_COMMANDS[command] + b'\r\n'
             else:
                 # Handle command arguments
-                cmd_parts = command.split(b" ", 1)
+                cmd_parts = command.split(b' ', 1)
                 base_cmd = cmd_parts[0]
 
-                if base_cmd in (b"sudo", b"su"):
-                    response = (
-                        b"-rbash: "
-                        + base_cmd
-                        + b": command not found in restricted shell\r\n"
-                    )
-                elif base_cmd in (b"vim", b"nano", b"emacs"):
-                    response = (
-                        b"-rbash: " + base_cmd + b": No such file or directory\r\n"
-                    )
+                if base_cmd in (b'sudo', b'su'):
+                    response = b'-rbash: ' + base_cmd + b': command not found in restricted shell\r\n'
+                elif base_cmd in (b'vim', b'nano', b'emacs'):
+                    response = b'-rbash: ' + base_cmd + b': No such file or directory\r\n'
                 else:
-                    response = b"-rbash: " + base_cmd + b": command not found\r\n"
+                    response = b'-rbash: ' + base_cmd + b': command not found\r\n'
 
-            log_command(command, client_ip)
+            # Log the cleaned command
+            cleaned_command = clean_command(command)
+            if cleaned_command:  # Only log if there's a command after cleaning
+                log_command(cleaned_command, client_ip)
+                
             channel.send(response)
             channel.send(b"honeypotuser@honeypot-srv01:~$ ")
             command = b""
