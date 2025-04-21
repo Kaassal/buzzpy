@@ -23,19 +23,24 @@ def parse_creds_audits_log(creds_audits_log_file):
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format: "Client 127.0.0.1 connection attempt username: user, password: abc123"
+                    # Parse log format with timestamp: "YYYY-MM-DD HH:MM:SS,mmm Client IP connection attempt username: user, password: pass"
                     match = re.match(
-                        r"Client (.*?) connection attempt username: (.*?), password: (.*?)$",
+                        r"(.*?) Client (.*?) connection attempt username: (.*?), password: (.*?)$",
                         line.strip(),
                     )
                     if match:
-                        ip_address, username, password = match.groups()
-                        data.append([ip_address, username, password])
+                        timestamp, ip_address, username, password = match.groups()
+                        data.append({
+                            "timestamp": timestamp,
+                            "ip_address": ip_address,
+                            "username": username,
+                            "password": password
+                        })
 
-        return pd.DataFrame(data, columns=["ip_address", "username", "password"])
+        return pd.DataFrame(data)
     except Exception as e:
         print(f"Error parsing credentials log: {e}")
-        return pd.DataFrame(columns=["ip_address", "username", "password"])
+        return pd.DataFrame(columns=["timestamp", "ip_address", "username", "password"])
 
 
 def clean_command_text(command):
@@ -58,18 +63,22 @@ def parse_cmd_audits_log(cmd_audits_log_file):
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format: "Command: {command} Client: {ip}"
-                    match = re.match(r"Command: (.*?) Client: (.*?)$", line.strip())
+                    # Parse log format: "YYYY-MM-DD HH:MM:SS,mmm Command: command Client: IP"
+                    match = re.match(r"(.*?) Command: (.*?) Client: (.*?)$", line.strip())
                     if match:
-                        command, ip = match.groups()
+                        timestamp, command, ip = match.groups()
                         # Clean the command text before adding to data
                         cleaned_command = clean_command_text(command)
-                        data.append({"Command": cleaned_command, "Client": ip})
+                        data.append({
+                            "timestamp": timestamp,
+                            "Command": cleaned_command,
+                            "Client": ip
+                        })
 
         return pd.DataFrame(data)
     except Exception as e:
         print(f"Error parsing commands log: {e}")
-        return pd.DataFrame(columns=["Command", "Client"])
+        return pd.DataFrame(columns=["timestamp", "Command", "Client"])
 
 
 def parse_http_url_audits_log(http_url_audits_log_file):

@@ -6,7 +6,7 @@ import threading
 import paramiko
 
 # Constant variables
-LOGGING_FORMAT = logging.Formatter("%(message)s")
+LOGGING_FORMAT = logging.Formatter("%(asctime)s %(message)s")  # Added timestamp to format
 SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  # TODO: Add JSON for strings
 HOST_KEY = paramiko.RSAKey(filename="server.key")
 
@@ -167,7 +167,7 @@ class Server(paramiko.ServerInterface):
         self.input_password = input_password
 
     def check_channel_request(self, kind, chanid):
-        if kind == "session":
+        if (kind == "session"):
             return paramiko.OPEN_SUCCEEDED
         return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 

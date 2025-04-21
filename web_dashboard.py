@@ -385,17 +385,17 @@ def create_data_tables(selected_service="all"):
             "whiteSpace": "normal",
             "wordBreak": "break-word",
         },
-        # Add pagination settings
-        "page_size": 10,  # Number of rows per page
-        "page_action": "native",  # Use built-in pagination
-        "page_current": 0,  # Start at first page
-        "sort_action": "native",  # Enable sorting
-        "sort_mode": "multi",  # Allow sorting by multiple columns
+        "page_size": 10,
+        "page_action": "native",
+        "page_current": 0,
+        "sort_action": "native",
+        "sort_mode": "multi",
     }
 
     if selected_service in ["all", "ssh"]:
         # SSH Credentials Table
         if not ssh_creds_log_df.empty:
+            sorted_creds_df = ssh_creds_log_df.sort_values(by="timestamp", ascending=False)
             tables.append(
                 html.Div(
                     [
@@ -403,44 +403,18 @@ def create_data_tables(selected_service="all"):
                         dash_table.DataTable(
                             id="ssh-creds-table",
                             columns=[
-                                {"name": i, "id": i} for i in ssh_creds_log_df.columns
+                                {"name": i, "id": i} for i in sorted_creds_df.columns
                             ],
-                            data=ssh_creds_log_df.to_dict("records"),
+                            data=sorted_creds_df.to_dict("records"),
                             **table_style,
                         ),
                     ]
                 )
             )
 
-            # Add Country Code Table for SSH if enabled
-            if country == "True":
-                try:
-                    ssh_country_df = ip_to_country_code(ssh_creds_log_df)
-                    if not ssh_country_df.empty:
-                        tables.append(
-                            html.Div(
-                                [
-                                    html.H4(
-                                        "Country Code Distribution (SSH)",
-                                        className="text-center mt-4",
-                                    ),
-                                    dash_table.DataTable(
-                                        id="ssh-country-code-table",
-                                        columns=[
-                                            {"name": i, "id": i}
-                                            for i in ssh_country_df.columns
-                                        ],
-                                        data=ssh_country_df.to_dict("records"),
-                                        **table_style,
-                                    ),
-                                ]
-                            )
-                        )
-                except Exception as e:
-                    print(f"Error creating SSH country table: {e}")
-
         # SSH Commands Table
         if not ssh_cmds_log_df.empty:
+            sorted_cmds_df = ssh_cmds_log_df.sort_values(by="timestamp", ascending=False)
             tables.append(
                 html.Div(
                     [
@@ -448,9 +422,9 @@ def create_data_tables(selected_service="all"):
                         dash_table.DataTable(
                             id="ssh-commands-table",
                             columns=[
-                                {"name": i, "id": i} for i in ssh_cmds_log_df.columns
+                                {"name": i, "id": i} for i in sorted_cmds_df.columns
                             ],
-                            data=ssh_cmds_log_df.to_dict("records"),
+                            data=sorted_cmds_df.to_dict("records"),
                             **table_style,
                         ),
                     ]
