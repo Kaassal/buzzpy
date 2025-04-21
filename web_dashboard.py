@@ -86,8 +86,8 @@ service_options = [
 def create_service_stats(selected_service):
     """Create service-specific statistics based on selected service"""
     graphs = []
-    ssh_country_df = pd.DataFrame()  # Initialize SSH country DataFrame
-    http_country_df = pd.DataFrame()  # Initialize HTTP country DataFrame
+    ssh_country_df = pd.DataFrame()
+    http_country_df = pd.DataFrame()
 
     if selected_service == "all" or selected_service == "ssh":
         ssh_ip_data = top_10_calculator(ssh_creds_log_df, "ip_address")
@@ -102,6 +102,71 @@ def create_service_stats(selected_service):
             except Exception as e:
                 print(f"[ERROR] Failed to generate SSH country codes: {e}")
                 ssh_country_df = pd.DataFrame({"Country_Code": ["Error"], "frequency": [0]})
+                
+        # Add SSH-only graphs when SSH is selected
+        if selected_service == "ssh":
+            graphs.extend([
+                dbc.Col(
+                    dcc.Graph(
+                        figure=px.bar(
+                            ssh_ip_data,
+                            x="ip_address",
+                            y="frequency",
+                            title="Top 10 IP Addresses (SSH)",
+                        )
+                    ),
+                    width=6,
+                ),
+                dbc.Col(
+                    dcc.Graph(
+                        figure=px.bar(
+                            ssh_user_data,
+                            x="username",
+                            y="frequency",
+                            title="Top 10 Usernames (SSH)",
+                        )
+                    ),
+                    width=6,
+                ),
+                dbc.Col(
+                    dcc.Graph(
+                        figure=px.bar(
+                            ssh_pass_data,
+                            x="password",
+                            y="frequency",
+                            title="Top 10 Passwords (SSH)",
+                        )
+                    ),
+                    width=6,
+                ),
+                dbc.Col(
+                    dcc.Graph(
+                        figure=px.bar(
+                            ssh_cmd_data,
+                            x="Command",
+                            y="frequency",
+                            title="Top 10 SSH Commands",
+                        )
+                    ),
+                    width=6,
+                ),
+            ])
+            
+            # Add SSH country code graph if enabled
+            if country == "True" and not ssh_country_df.empty:
+                graphs.append(
+                    dbc.Col(
+                        dcc.Graph(
+                            figure=px.bar(
+                                ssh_country_df,
+                                x="Country_Code",
+                                y="frequency",
+                                title="Country Distribution (SSH)",
+                            )
+                        ),
+                        width=12,
+                    )
+                )
 
     if selected_service == "all" or selected_service == "http":
         http_ip_data = top_10_calculator(http_url_log_df, "ip_address")
