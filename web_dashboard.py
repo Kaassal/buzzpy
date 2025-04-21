@@ -108,20 +108,40 @@ def create_service_stats(selected_service):
         http_url_data = top_10_calculator(http_url_log_df, "url")
         http_method_data = top_10_calculator(http_url_log_df, "method")
 
-        # Create URL graph with improved layout
+        # Create URL graph with improved layout and hover info
         url_fig = go.Figure(data=[
             go.Bar(
-                x=http_url_data["url"],
-                y=http_url_data["frequency"],
-                text=http_url_data["frequency"],
-                textposition="auto",
+                x=http_url_data['url'],
+                y=http_url_data['frequency'],
+                text=None,
+                showlegend=False,
+                hovertemplate="<b>URL:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>",
             )
         ])
+        
         url_fig.update_layout(
-            title="Top 10 URLs (HTTP)",
-            xaxis_title="URL",
-            yaxis_title="Frequency",
-            showlegend=False
+            template="solar",
+            title={
+                'text': "Top 10 URLs (HTTP)<br><span style='font-size: 12px; color: gray'>Hover over bars to see full URLs</span>",
+                'xanchor': 'left',
+                'yanchor': 'top'
+            },
+            xaxis={
+                'showticklabels': False,
+                'title': 'URLs',
+                'showgrid': False,
+            },
+            yaxis={
+                'title': 'Frequency',
+                'showgrid': True,
+                'gridcolor': '#073642'
+            },
+            height=450,
+            margin={'t': 100, 'b': 50, 'l': 50, 'r': 20},
+            hoverlabel={'align': 'left'},
+            plot_bgcolor='#002b36',  # Solar theme plot background
+            paper_bgcolor='#1e434a',  # Solar theme paper background (border)
+            bargap=0.2
         )
 
         if country == "True":
@@ -129,12 +149,14 @@ def create_service_stats(selected_service):
                 print("[DEBUG] Processing HTTP country codes")
                 # Combine both HTTP logs for country code lookup
                 combined_http_df = pd.concat([
-                    http_url_log_df[["ip_address"]],
-                    http_creds_log_df[["ip_address"]]
+                    http_creds_log_df[["ip_address"]],  # Put creds first as it has known good IPs
+                    http_url_log_df[["ip_address"]]
                 ]).drop_duplicates()
                 
                 http_country_df = ip_to_country_code(combined_http_df)
-                print(f"[DEBUG] HTTP country DataFrame shape: {http_country_df.shape}")
+                print(f"[DEBUG] HTTP country DataFrame: {http_country_df.shape}")
+                print("[DEBUG] HTTP country codes found:")
+                print(http_country_df)
             except Exception as e:
                 print(f"[ERROR] Failed to generate HTTP country codes: {e}")
                 http_country_df = pd.DataFrame({"Country_Code": ["Error"], "frequency": [0]})
@@ -277,7 +299,7 @@ def create_service_stats(selected_service):
             ])
 
             # Add HTTP country code graph if enabled
-            if country == "True" and not http_country_df.empty:
+            if country == "True" and not http_country_df.empty and "Country_Code" in http_country_df.columns:
                 graphs.append(
                     dbc.Col(
                         dcc.Graph(
