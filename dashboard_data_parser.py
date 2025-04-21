@@ -3,6 +3,7 @@ import pandas as pd
 import re
 import requests
 import glob
+from pathlib import Path
 
 # This file parses the various log files. The log files have different "formats" or information provided, so needed to create unique parsers for each.
 # Each of these parsers takes the log file, gathers the specific information provided in the log, then returns the data in columns/rows Pandas dataframe type.
@@ -18,18 +19,24 @@ def parse_creds_audits_log(creds_audits_log_file):
     """Parse SSH credentials log file, including rotated files."""
     try:
         data = []
-        # Use glob to find all matching log files, including rotated ones.
-        log_files = glob.glob(creds_audits_log_file + "*")
+        # Get base directory of the log file
+        base_dir = str(Path(creds_audits_log_file).parent)
+        # Use glob with correct pattern to find all rotated files
+        log_files = glob.glob(f"{base_dir}/audits.log*")
+        
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format with timestamp: "YYYY-MM-DD HH:MM:SS,mmm Client IP connection attempt username: user, password: pass"
+                    # Parse log format: "timestamp Client IP connection attempt username: user, password: pass"
                     match = re.match(
-                        r"(.*?) Client (.*?) connection attempt username: (.*?), password: (.*?)$",
+                        r"(?:(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) )?Client (.*?) connection attempt username: (.*?), password: (.*?)$",
                         line.strip(),
                     )
                     if match:
                         timestamp, ip_address, username, password = match.groups()
+                        # Use current timestamp if not present in log
+                        if not timestamp:
+                            timestamp = "No timestamp"
                         data.append({
                             "timestamp": timestamp,
                             "ip_address": ip_address,
@@ -58,15 +65,18 @@ def parse_cmd_audits_log(cmd_audits_log_file):
     """Parse SSH command log file, including rotated files."""
     try:
         data = []
-        # Use glob to find all matching log files, including rotated ones.
-        log_files = glob.glob(cmd_audits_log_file + "*")
+        base_dir = str(Path(cmd_audits_log_file).parent)
+        log_files = glob.glob(f"{base_dir}/cmd_audits.log*")
+        
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format: "YYYY-MM-DD HH:MM:SS,mmm Command: command Client: IP"
-                    match = re.match(r"(.*?) Command: (.*?) Client: (.*?)$", line.strip())
+                    # Parse log format: "timestamp Command: command Client: IP"
+                    match = re.match(r"(?:(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) )?Command: (.*?) Client: (.*?)$", line.strip())
                     if match:
                         timestamp, command, ip = match.groups()
+                        if not timestamp:
+                            timestamp = "No timestamp"
                         # Clean the command text before adding to data
                         cleaned_command = clean_command_text(command)
                         data.append({
@@ -85,27 +95,25 @@ def parse_http_url_audits_log(http_url_audits_log_file):
     """Parse HTTP URL log file, including rotated files."""
     try:
         data = []
-        # Use glob to find all matching log files, including rotated ones
-        log_files = glob.glob(http_url_audits_log_file + "*")
+        base_dir = str(Path(http_url_audits_log_file).parent)
+        log_files = glob.glob(f"{base_dir}/http_url_audits.log*")
+        
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format with timestamp
                     match = re.match(
                         r"(.*?) Client (.*?) \| Method: (.*?) \| URL: (.*?) \| Args: (.*)$",
                         line.strip(),
                     )
                     if match:
                         timestamp, ip_address, method, url, args = match.groups()
-                        data.append(
-                            {
-                                "timestamp": timestamp,
-                                "ip_address": ip_address,
-                                "method": method,
-                                "url": url,
-                                "args": args,
-                            }
-                        )
+                        data.append({
+                            "timestamp": timestamp,
+                            "ip_address": ip_address,
+                            "method": method,
+                            "url": url,
+                            "args": args,
+                        })
 
         return pd.DataFrame(data)
     except Exception as e:
@@ -117,11 +125,12 @@ def parse_http_creds_audits_log(http_audits_log_file):
     """Parse HTTP credentials log file, including rotated files."""
     try:
         data = []
-        log_files = glob.glob(http_audits_log_file + "*")
+        base_dir = str(Path(http_audits_log_file).parent)
+        log_files = glob.glob(f"{base_dir}/http_audits.log*")
+        
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
-                    # Parse log format with timestamp
                     match = re.match(
                         r"(.*?) Client (.*?) attempted login with username: (.*?) and password: (.*?)$",
                         line.strip(),

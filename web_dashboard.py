@@ -15,35 +15,37 @@ from buzzpy import *
 # Constants.
 # Get base directory of where user is running buzzpy from.
 base_dir = Path(__file__).parent
-# Source log file paths
+# Source log file paths with glob patterns to include rotated files
 log_dir = base_dir / "log_files"
-ssh_creds_log_file_path = log_dir / "audits.log"
-ssh_cmds_log_file_path = log_dir / "cmd_audits.log"
-http_url_log_file_path = log_dir / "http_url_audits.log"
-http_creds_log_file_path = log_dir / "http_audits.log"
+
+# Define full paths for log files including base directory
+ssh_creds_log_file_path = str(log_dir / "audits.log")
+ssh_cmds_log_file_path = str(log_dir / "cmd_audits.log")
+http_url_log_file_path = str(log_dir / "http_url_audits.log")
+http_creds_log_file_path = str(log_dir / "http_audits.log")
 
 # Create log_files directory if it doesn't exist
 log_dir.mkdir(exist_ok=True)
 
 # Ensure log files exist (create empty ones if they don't)
-if not ssh_creds_log_file_path.exists():
-    ssh_creds_log_file_path.touch()
-if not ssh_cmds_log_file_path.exists():
-    ssh_cmds_log_file_path.touch()
-if not http_url_log_file_path.exists():
-    http_url_log_file_path.touch()
-if not http_creds_log_file_path.exists():
-    http_creds_log_file_path.touch()
+if not Path(ssh_creds_log_file_path).exists():
+    Path(ssh_creds_log_file_path).touch()
+if not Path(ssh_cmds_log_file_path).exists():
+    Path(ssh_cmds_log_file_path).touch()
+if not Path(http_url_log_file_path).exists():
+    Path(http_url_log_file_path).touch()
+if not Path(http_creds_log_file_path).exists():
+    Path(http_creds_log_file_path).touch()
 
 # Load dotenv() to capture environment variable.
 dotenv_path = Path("public.env")
 load_dotenv(dotenv_path=dotenv_path)
 
-# Pass log files to dataframe conversion.
-ssh_creds_log_df = parse_creds_audits_log(str(ssh_creds_log_file_path))
-ssh_cmds_log_df = parse_cmd_audits_log(str(ssh_cmds_log_file_path))
-http_url_log_df = parse_http_url_audits_log(str(http_url_log_file_path))
-http_creds_log_df = parse_http_creds_audits_log(str(http_creds_log_file_path))
+# Pass log files to dataframe conversion with full paths
+ssh_creds_log_df = parse_creds_audits_log(ssh_creds_log_file_path)
+ssh_cmds_log_df = parse_cmd_audits_log(ssh_cmds_log_file_path)
+http_url_log_df = parse_http_url_audits_log(http_url_log_file_path)
+http_creds_log_df = parse_http_creds_audits_log(http_creds_log_file_path)
 
 # Python Dash (& Dash Bootstrap) Constants.
 # Load the Solar theme from Python Dash Bootstrap
@@ -431,6 +433,33 @@ def create_data_tables(selected_service="all"):
                 )
             )
 
+        # Add SSH Country Code Table if enabled
+        if country == "True":
+            try:
+                ssh_country_df = ip_to_country_code(ssh_creds_log_df)
+                if not ssh_country_df.empty:
+                    tables.append(
+                        html.Div(
+                            [
+                                html.H4(
+                                    "Country Code Distribution (SSH)",
+                                    className="text-center mt-4",
+                                ),
+                                dash_table.DataTable(
+                                    id="ssh-country-code-table",
+                                    columns=[
+                                        {"name": i, "id": i}
+                                        for i in ssh_country_df.columns
+                                    ],
+                                    data=ssh_country_df.to_dict("records"),
+                                    **table_style,
+                                ),
+                            ]
+                        )
+                    )
+            except Exception as e:
+                print(f"Error creating SSH country table: {e}")
+
     if selected_service in ["all", "http"]:
         # HTTP Login Attempts Table
         if not http_creds_log_df.empty:
@@ -470,39 +499,54 @@ def create_data_tables(selected_service="all"):
                 )
             )
 
-            # Add Country Code Table for HTTP if enabled
-            if country == "True":
-                try:
-                    http_country_df = ip_to_country_code(http_url_log_df)
-                    if not http_country_df.empty:
-                        tables.append(
-                            html.Div(
-                                [
-                                    html.H4(
-                                        "Country Code Distribution (HTTP)",
-                                        className="text-center mt-4",
-                                    ),
-                                    dash_table.DataTable(
-                                        id="http-country-code-table",
-                                        columns=[
-                                            {"name": i, "id": i}
-                                            for i in http_country_df.columns
-                                        ],
-                                        data=http_country_df.to_dict("records"),
-                                        **table_style,
-                                    ),
-                                ]
-                            )
+        # Add HTTP Country Code Table if enabled
+        if country == "True":
+            try:
+                http_country_df = ip_to_country_code(http_url_log_df)
+                if not http_country_df.empty:
+                    tables.append(
+                        html.Div(
+                            [
+                                html.H4(
+                                    "Country Code Distribution (HTTP)",
+                                    className="text-center mt-4",
+                                ),
+                                dash_table.DataTable(
+                                    id="http-country-code-table",
+                                    columns=[
+                                        {"name": i, "id": i}
+                                        for i in http_country_df.columns
+                                    ],
+                                    data=http_country_df.to_dict("records"),
+                                    **table_style,
+                                ),
+                            ]
                         )
-                except Exception as e:
-                    print(f"Error creating HTTP country table: {e}")
+                    )
+            except Exception as e:
+                print(f"Error creating HTTP country table: {e}")
 
     return tables
+
+
+def refresh_data():
+    """Refresh data from all log files including rotated ones"""
+    global ssh_creds_log_df, ssh_cmds_log_df, http_url_log_df, http_creds_log_df
+    
+    ssh_creds_log_df = parse_creds_audits_log(ssh_creds_log_file_path)
+    ssh_cmds_log_df = parse_cmd_audits_log(ssh_cmds_log_file_path)
+    http_url_log_df = parse_http_url_audits_log(http_url_log_file_path)
+    http_creds_log_df = parse_http_creds_audits_log(http_creds_log_file_path)
 
 
 # Define web application layout.
 app.layout = dbc.Container(
     [
+        dcc.Interval(
+            id='interval-component',
+            interval=10*1000,  # in milliseconds (10 seconds)
+            n_intervals=0
+        ),
         # Honeypot Title and Service Selection
         dbc.Row(
             dbc.Col(
@@ -550,17 +594,14 @@ app.layout = dbc.Container(
 
 
 @app.callback(
-    Output("graphs-container", "children"), [Input("service-selector", "value")]
+    [Output("graphs-container", "children"),
+     Output("tables-container", "children")],
+    [Input("service-selector", "value"),
+     Input('interval-component', 'n_intervals')]
 )
-def update_graphs(selected_service):
-    return create_service_stats(selected_service)
-
-
-@app.callback(
-    Output("tables-container", "children"), [Input("service-selector", "value")]
-)
-def update_tables(selected_service):
-    return create_data_tables(selected_service)
+def update_dashboard(selected_service, n):
+    refresh_data()  # Refresh data from all log files
+    return create_service_stats(selected_service), create_data_tables(selected_service)
 
 
 if __name__ == "__main__":
