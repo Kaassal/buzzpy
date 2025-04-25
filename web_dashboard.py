@@ -12,7 +12,6 @@ import json
 
 # Import project python file dependencies.
 from dashboard_data_parser import *
-from buzzpy import *
 
 # Constants.
 # Get base directory of where user is running buzzpy from.
@@ -954,4 +953,4 @@ def update_dashboard(n_clicks, selected_lang, selected_service):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1")
+    app.run(debug=False, host="127.0.0.1", use_reloader=False)

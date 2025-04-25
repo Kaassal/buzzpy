@@ -102,4 +102,4 @@ def web_honeypot(address, port=8080, input_username="admin", input_password="pas
 
     mode = "DEMO MODE" if demo_mode else "PRODUCTION MODE" 
     print(f"Web honeypot listening on {address}:{port} ({mode})")
-    return app.run(debug=True, port=port, host=address)
+    return app.run(debug=False, port=port, host=address, use_reloader=False)
