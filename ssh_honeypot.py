@@ -9,6 +9,31 @@ import pytz
 import random
 import time
 import os
+import json
+from pathlib import Path
+
+
+# Constant variables
+LOGGING_FORMAT = logging.Formatter("%(asctime)s %(message)s")
+HOST_KEY = paramiko.RSAKey(filename="server.key")
+
+# Update logging to ensure proper separation of credentials and commands.
+FUNNEL_LOGGER = logging.getLogger("FunnelLogger")
+FUNNEL_LOGGER.setLevel(logging.INFO)
+FUNNEL_HANDLER = RotatingFileHandler(
+    "log_files/audits.log", maxBytes=2000, backupCount=5
+)
+FUNNEL_HANDLER.setFormatter(LOGGING_FORMAT)
+FUNNEL_LOGGER.addHandler(FUNNEL_HANDLER)
+
+CREDS_LOGGER = logging.getLogger("CmdLogger")
+CREDS_LOGGER.setLevel(logging.INFO)
+CREDS_HANDLER = RotatingFileHandler(
+    "log_files/cmd_audits.log", maxBytes=2000, backupCount=5
+)
+CREDS_HANDLER.setFormatter(LOGGING_FORMAT)
+CREDS_LOGGER.addHandler(CREDS_HANDLER)
+
 
 # Store the start time of the honeypot for uptime calculations
 HONEYPOT_START_TIME = time.time()
@@ -62,302 +87,28 @@ def get_who_output():
     return f"sysadmin pts/0        {now.strftime('%Y-%m-%d')} {login_time} ({idle_time})".encode()
 
 
-def get_memory_stats():
-    """Generate slightly varying memory statistics"""
-    # Base values
-    total_mem = 1607888
-    total_swap = 2097152
+def load_honeypot_strings(demo_mode=False):
+    """Load honeypot strings from JSON configuration file"""
+    config_path = Path(__file__).parent / "config" / "honeypot_strings.json"
+    try:
+        with open(config_path, "r") as f:
+            strings = json.load(f)
+            mode = "demo" if demo_mode else "real"
+            config = strings[mode]
 
-    # Generate varying used memory (around 50-55%)
-    used_mem = int(total_mem * (random.uniform(0.50, 0.55)))
-    buff_cache = int(total_mem * (random.uniform(0.35, 0.40)))
-    free_mem = total_mem - used_mem - buff_cache
-
-    # Generate varying swap usage (around 5-7%)
-    used_swap = int(total_swap * (random.uniform(0.05, 0.07)))
-    free_swap = total_swap - used_swap
-
-    # Format for both normal and -h output
-    normal = (
-        b"              total        used        free      shared  buff/cache   available\n"
-        b"Mem:        %8d %10d %9d %9d %10d %10d\n"
-        b"Swap:       %8d %10d %9d"
-        % (
-            total_mem,
-            used_mem,
-            free_mem,
-            random.randint(3500, 4000),
-            buff_cache,
-            buff_cache + free_mem,
-            total_swap,
-            used_swap,
-            free_swap,
-        )
-    )
-
-    human = (
-        b"               total        used        free      shared  buff/cache   available\n"
-        b"Mem:           %.1fG      %.1fG      %.1fG      %d.%dM       %.1fG      %.1fG\n"
-        b"Swap:          %.1fG      %.1fG      %.1fG"
-        % (
-            total_mem / 1024 / 1024,
-            used_mem / 1024 / 1024,
-            free_mem / 1024 / 1024,
-            random.randint(3, 4),
-            random.randint(5, 9),
-            buff_cache / 1024 / 1024,
-            (buff_cache + free_mem) / 1024 / 1024,
-            total_swap / 1024 / 1024,
-            used_swap / 1024 / 1024,
-            free_swap / 1024 / 1024,
-        )
-    )
-
-    return normal, human
-
-
-def get_disk_stats():
-    """Generate slightly varying disk usage statistics"""
-    # Base values
-    total_space = 41251136
-    data_space = 5242880
-
-    # Generate varying usage (system disk 29-32%, data disk 88-92%)
-    sys_used = int(total_space * (random.uniform(0.29, 0.32)))
-    sys_avail = total_space - sys_used
-
-    data_used = int(data_space * (random.uniform(0.88, 0.92)))
-    data_avail = data_space - data_used
-
-    # Format for both normal and -h output
-    normal = (
-        b"Filesystem     1K-blocks      Used Available Use% Mounted on\n"
-        b"/dev/sda1      %9d %9d %9d %3d%% /\n"
-        b"tmpfs            803944         0    803944   0%% /dev/shm\n"
-        b"/dev/sdb1       %7d %9d %8d %3d%% /data"
-        % (
-            total_space,
-            sys_used,
-            sys_avail,
-            sys_used * 100 // total_space,
-            data_space,
-            data_used,
-            data_avail,
-            data_used * 100 // data_space,
-        )
-    )
-
-    human = (
-        b"Filesystem      Size  Used Avail Use%% Mounted on\n"
-        b"/dev/sda1        40G  %.1fG  %.1fG  %3d%% /\n"
-        b"tmpfs           785M     0  785M   0%% /dev/shm\n"
-        b"/dev/sdb1         5G  %.1fG  %.1fG  %3d%% /data"
-        % (
-            sys_used / 1024 / 1024,
-            sys_avail / 1024 / 1024,
-            sys_used * 100 // total_space,
-            data_used / 1024 / 1024,
-            data_avail / 1024 / 1024,
-            data_used * 100 // data_space,
-        )
-    )
-
-    return normal, human
-
-
-# String configurations for different modes
-DEMO_STRINGS = {
-    "ssh_banner": "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2-DEMO",
-    "hostname": "demo-honeypot",
-    "username": "demouser",
-    "shell_prompt": "demouser@demo-honeypot:~$ ",
-    "welcome_message": "Welcome to Demo Honeypot! For testing purposes only.",
-    "shell_commands": {
-        b"pwd": b"/home/demouser",
-        b"whoami": b"demouser",
-        b"ls": b"demo1.txt demo2.txt demo3.txt",
-        b"id": b"uid=1000(demouser) gid=1000(demouser) groups=1000(demouser)",
-        b"uname": b"Linux demo-honeypot 4.15.0-54-generic #58-Ubuntu SMP x86_64 GNU/Linux",
-        b"hostname": b"demo-honeypot",
-    },
-}
-
-REAL_STRINGS = {
-    "ssh_banner": "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.4",
-    "hostname": "ubuntu22-prod",
-    "username": "sysadmin",
-    "shell_prompt": "sysadmin@ubuntu22-prod:~$ ",
-    "welcome_message": "Ubuntu 22.04.3 LTS\nWelcome to Ubuntu 22.04.3 LTS (GNU/Linux 5.15.0-92-generic x86_64)\n",
-    "shell_commands": {
-        b"pwd": b"/home/sysadmin",
-        b"whoami": b"sysadmin",
-        b"ls": b"backups  configs  logs  scripts  tools  .ssh  .bash_history  .mongodb  .viminfo",
-        b"ls -l": b"total 52\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 backups\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 configs\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 logs\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 scripts\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 tools\n"
-        b"drwx------ 2 sysadmin sysadmin 4096 Apr 20 10:24 .ssh\n"
-        b"-rw------- 1 sysadmin sysadmin 8192 Apr 25 13:40 .bash_history\n"
-        b"drwxr-x--- 3 sysadmin mongodb 4096 Apr 20 10:24 .mongodb\n"
-        b"-rw------- 1 sysadmin sysadmin 1024 Apr 20 10:24 .viminfo",
-        b"ls -la": b"total 72\n"
-        b"drwx------ 6 sysadmin sysadmin 4096 Apr 20 10:24 .\n"
-        b"drwxr-xr-x 4 root     root     4096 Apr 20 10:24 ..\n"
-        b"-rw------- 1 sysadmin sysadmin 8192 Apr 25 13:40 .bash_history\n"
-        b"-rw------- 1 sysadmin sysadmin  220 Apr 20 10:24 .bash_logout\n"
-        b"-rw------- 1 sysadmin sysadmin 3771 Apr 20 10:24 .bashrc\n"
-        b"drwxr-x--- 3 sysadmin mongodb 4096 Apr 20 10:24 .mongodb\n"
-        b"-rw------- 1 sysadmin sysadmin  807 Apr 20 10:24 .profile\n"
-        b"drwx------ 2 sysadmin sysadmin 4096 Apr 20 10:24 .ssh\n"
-        b"-rw------- 1 sysadmin sysadmin 1024 Apr 20 10:24 .viminfo\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 backups\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 configs\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 logs\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 scripts\n"
-        b"drwxr-x--- 2 sysadmin sysadmin 4096 Apr 20 10:24 tools",
-        b"ls backups": b"-bash: ls: Permission denied",
-        b"ls configs": b"-bash: ls: Permission denied",
-        b"ls logs": b"-bash: ls: Permission denied",
-        b"ls scripts": b"-bash: ls: Permission denied",
-        b"ls tools": b"-bash: ls: Permission denied",
-        b"ls .mongodb": b"mongod.conf  keyfile  admin.json",
-        b"cat .mongodb/mongod.conf": b"-bash: cat: Permission denied",
-        b"cat .mongodb/keyfile": b"-bash: cat: Permission denied",
-        b"cat .mongodb/admin.json": b"-bash: cat: Permission denied",
-        b"ls .ssh": b"authorized_keys  id_rsa  id_rsa.pub  known_hosts",
-        b"cat .ssh/id_rsa": b"-bash: cat: Permission denied",
-        b"cat .ssh/authorized_keys": b"-bash: cat: Permission denied",
-        b"id": b"uid=1000(sysadmin) gid=1000(sysadmin) groups=1000(sysadmin),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),118(mongodb)",
-        b"groups": b"sysadmin adm cdrom sudo dip plugdev mongodb",
-        b"uname": b"Linux ubuntu22-prod 5.15.0-92-generic #102-Ubuntu SMP x86_64 GNU/Linux",
-        b"uname -a": b"Linux ubuntu22-prod 5.15.0-92-generic #102-Ubuntu SMP Thu Feb 15 14:24:35 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux",
-        b"uname -r": b"5.15.0-92-generic",
-        b"hostname": b"ubuntu22-prod",
-        b"df": b"Filesystem     1K-blocks      Used Available Use% Mounted on\n"
-        b"/dev/sda1      41251136  12123084  27080668  31% /\n"
-        b"tmpfs            803944         0    803944   0% /dev/shm\n"
-        b"/dev/sdb1       5242880   4718592    524288  90% /data",
-        b"df -h": b"Filesystem      Size  Used Avail Use% Mounted on\n"
-        b"/dev/sda1        40G   12G   26G  31% /\n"
-        b"tmpfs           785M     0  785M   0% /dev/shm\n"
-        b"/dev/sdb1         5G   4.5G   512M  90% /data",
-        b"free": b"              total        used        free      shared  buff/cache   available\nMem:        1607888      843012      152484        3768      612392      609108\nSwap:       2097152      124088     1973064",
-        b"free -h": b"               total        used        free      shared  buff/cache   available\nMem:           1.5G        823M        148M        3.7M        597M        594M\nSwap:          2.0G        121M        1.9G",
-        b"ps": b"  PID TTY          TIME CMD\n 1234 pts/0    00:00:00 bash\n 5678 pts/0    00:00:00 ps",
-        b"ps aux": b"-bash: ps: Permission denied",
-        b"ps -ef": b"-bash: ps: Permission denied",
-        b"top": b"-bash: top: Permission denied",
-        b"htop": b"-bash: htop: command not found",
-        b"netstat": b"Active Internet connections (w/o servers)\n"
-        b"Proto Recv-Q Send-Q Local Address           Foreign Address         State\n"
-        b"tcp        0      0 localhost:39812         localhost:27017         ESTABLISHED\n"
-        b"tcp6       0      0 localhost:27017         localhost:39812         ESTABLISHED\n"
-        b"tcp        0      0 localhost:27017         localhost:39814         ESTABLISHED\n"
-        b"tcp6       0      0 localhost:39814         localhost:27017         ESTABLISHED",
-        b"netstat -tunlp": b"-bash: netstat: Permission denied",
-        b"ss": b"-bash: ss: Permission denied",
-        b"lsof": b"-bash: lsof: Permission denied",
-        b"w": b" 13:45:03 up 42 days,  2:32,  1 user,  load average: 0.08, 0.03, 0.01\nUSER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT\nsysadmin pts/0    tmux(1234)       13:44    0.00s  0.04s  0.00s w",
-        b"who": b"sysadmin pts/0        2024-04-25 13:44 (tmux(1234))",
-        b"date": b"Thu Apr 25 13:45:04 UTC 2024",
-        b"uptime": b" 13:45:03 up 42 days,  2:32,  1 user,  load average: 0.08, 0.03, 0.01",
-        b"cat /etc/passwd": b"-bash: /etc/passwd: Permission denied",
-        b"cat /etc/shadow": b"-bash: /etc/shadow: Permission denied",
-        b"cat /etc/hosts": b"127.0.0.1 localhost\n"
-        b"127.0.1.1 ubuntu22-prod\n"
-        b"\n"
-        b"# MongoDB replica set members\n"
-        b"127.0.0.1 mongodb0.internal\n"
-        b"127.0.0.1 mongodb1.internal\n"
-        b"127.0.0.1 mongodb2.internal",
-        b"sudo": b"sudo: command not found",
-        b"su": b"-bash: su: Permission denied",
-        b"vim": b"-bash: vim: command not found",
-        b"nano": b"-bash: nano: command not found",
-        b"gcc": b"-bash: gcc: command not found",
-        b"perl": b"-bash: perl: command not found",
-        b"python": b"-bash: python: command not found",
-        b"python3": b"-bash: python3: command not found",
-        b"mongo": b"-bash: mongo: Permission denied",
-        b"mongodb": b"-bash: mongodb: Permission denied",
-        b"mongosh": b"-bash: mongosh: Permission denied",
-        b"mysql": b"-bash: mysql: command not found",
-        b"find": b"-bash: find: Permission denied",
-        b"locate": b"-bash: locate: command not found",
-        b"whereis": b"-bash: whereis: Permission denied",
-        b"which": b"-bash: which: Permission denied",
-        b"curl": b"-bash: curl: Permission denied",
-        b"wget": b"-bash: wget: Permission denied",
-        b"nmap": b"-bash: nmap: command not found",
-        b"nc": b"-bash: nc: Permission denied",
-        b"netcat": b"-bash: netcat: Permission denied",
-        b"chown": b"-bash: chown: Permission denied",
-        b"chmod": b"-bash: chmod: Permission denied",
-        b"mount": b"-bash: mount: Permission denied",
-        b"umount": b"-bash: umount: Permission denied",
-        b"cat .bash_history": b"-bash: cat: Permission denied",
-        b"history": b"-bash: history: Permission denied",
-        b"env": b"SHELL=/bin/bash\n"
-        b"PWD=/home/sysadmin\n"
-        b"LOGNAME=sysadmin\n"
-        b"HOME=/home/sysadmin\n"
-        b"LANG=en_US.UTF-8\n"
-        b"TERM=xterm\n"
-        b"USER=sysadmin\n"
-        b"SHLVL=1\n"
-        b"PATH=/usr/local/bin:/usr/bin:/bin\n"
-        b"MAIL=/var/mail/sysadmin\n"
-        b"_=/usr/bin/env",
-        b"cat /proc/version": b"Linux version 5.15.0-92-generic (buildd@lcy02-amd64-017) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #102-Ubuntu SMP Thu Feb 15 14:24:35 UTC 2024",
-        b"lsb_release": b"-bash: lsb_release: command not found",
-        b"service": b"-bash: service: command not found",
-        b"systemctl": b"-bash: systemctl: Permission denied",
-        b"journalctl": b"-bash: journalctl: Permission denied",
-        b"crontab": b"-bash: crontab: Permission denied",
-        b"ssh-keygen": b"-bash: ssh-keygen: Permission denied",
-    },
-}
+            # Convert shell command values to bytes
+            config["shell_commands"] = {
+                k.encode(): v.encode() for k, v in config["shell_commands"].items()
+            }
+            return config
+    except Exception as e:
+        print(f"Error loading honeypot strings: {e}")
+        return None
 
 
 # Get the appropriate string configuration
 def get_strings(demo_mode=False):
-    return DEMO_STRINGS if demo_mode else REAL_STRINGS
-
-
-# Constant variables
-LOGGING_FORMAT = logging.Formatter(
-    "%(asctime)s %(message)s"
-)  # Added timestamp to format
-SSH_BANNER = "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2"  # TODO: Add JSON for strings
-HOST_KEY = paramiko.RSAKey(filename="server.key")
-
-# Update logging to ensure proper separation of credentials and commands.
-FUNNEL_LOGGER = logging.getLogger("FunnelLogger")
-FUNNEL_LOGGER.setLevel(logging.INFO)
-FUNNEL_HANDLER = RotatingFileHandler(
-    "log_files/audits.log", maxBytes=2000, backupCount=5
-)
-FUNNEL_HANDLER.setFormatter(LOGGING_FORMAT)
-FUNNEL_LOGGER.addHandler(FUNNEL_HANDLER)
-
-CREDS_LOGGER = logging.getLogger("CmdLogger")
-CREDS_LOGGER.setLevel(logging.INFO)
-CREDS_HANDLER = RotatingFileHandler(
-    "log_files/cmd_audits.log", maxBytes=2000, backupCount=5
-)
-CREDS_HANDLER.setFormatter(LOGGING_FORMAT)
-CREDS_LOGGER.addHandler(CREDS_HANDLER)
-
-SHELL_COMMANDS = {
-    b"pwd": b"/usr/local",
-    b"whoami": b"honeypotuser",
-    b"ls": b"sshHoneypot.conf backup config scripts",
-    b"id": b"uid=1000(honeypotuser) gid=1000(honeypotuser) groups=1000(honeypotuser)",
-    b"uname": b"Linux honeypot 4.15.0-54-generic #58-Ubuntu SMP x86_64 GNU/Linux",
-    b"hostname": b"honeypot-srv01",
-}
+    return load_honeypot_strings(demo_mode)
 
 
 def clean_command(command):
@@ -494,14 +245,21 @@ def emulated_shell(channel, client_ip, demo_mode=False):
             elif command == b"uptime":
                 channel.send(get_uptime().encode() + b"\r\n")
             elif command == b"free" or command == b"free -h":
-                # Change free command to permission denied since formatting is problematic
                 channel.send(b"-bash: free: Permission denied\r\n")
-            elif command == b"df":
-                normal, _ = get_disk_stats()
-                channel.send(normal + b"\r\n")
-            elif command == b"df -h":
-                _, human = get_disk_stats()
-                channel.send(human + b"\r\n")
+            elif command.startswith(b"cat "):
+                # Extract the file path from the cat command
+                file_path = command[4:].strip()  # Remove 'cat ' and any whitespace
+                if file_path == b"/etc/hosts":
+                    response = strings["shell_commands"][command]
+                    channel.send(response.replace(b"\n", b"\r\n") + b"\r\n")
+                elif file_path == b"/etc/":
+                    channel.send(b"-bash: cat: /etc/: Is a directory\r\n")
+                else:
+                    channel.send(b"-bash: cat: Permission denied\r\n")
+            elif command == b"cat":
+                channel.send(
+                    b"-bash: cat: missing operand\nTry 'cat --help' for more information.\r\n"
+                )
             elif command in strings["shell_commands"]:
                 response = strings["shell_commands"][command]
                 # Ensure proper line endings
