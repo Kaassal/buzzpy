@@ -89,7 +89,7 @@ def get_who_output():
 
 def load_honeypot_strings(demo_mode=False):
     """Load honeypot strings from JSON configuration file"""
-    config_path = Path(__file__).parent / "config" / "honeypot_strings.json"
+    config_path = Path(__file__).parent / "config" / "ssh_honeypot_strings.json"
     try:
         with open(config_path, "r") as f:
             strings = json.load(f)

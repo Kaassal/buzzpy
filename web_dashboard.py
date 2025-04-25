@@ -1,5 +1,5 @@
 # Import library dependencies.
-from dash import Dash, html, dash_table, dcc, Input, Output, no_update
+from dash import Dash, html, dash_table, dcc, Input, Output, no_update, State
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 import locale
+import json
 
 # Import project python file dependencies.
 from dashboard_data_parser import *
@@ -29,18 +30,63 @@ http_creds_log_file_path = str(log_dir / "http_audits.log")
 log_dir.mkdir(exist_ok=True)
 
 # Ensure log files exist (create empty ones if they don't)
-if not Path(ssh_creds_log_file_path).exists():
-    Path(ssh_creds_log_file_path).touch()
-if not Path(ssh_cmds_log_file_path).exists():
-    Path(ssh_cmds_log_file_path).touch()
-if not Path(http_url_log_file_path).exists():
-    Path(http_url_log_file_path).touch()
-if not Path(http_creds_log_file_path).exists():
-    Path(http_creds_log_file_path).touch()
+for log_file in [
+    ssh_creds_log_file_path,
+    ssh_cmds_log_file_path,
+    http_url_log_file_path,
+    http_creds_log_file_path,
+]:
+    if not Path(log_file).exists():
+        Path(log_file).touch()
 
 # Load dotenv() to capture environment variable.
 dotenv_path = Path("public.env")
 load_dotenv(dotenv_path=dotenv_path)
+
+# Load translations from JSON file
+with open(Path(base_dir) / "config" / "locales.json", "r") as f:
+    translations = json.load(f)
+
+# Available locales
+LOCALES = {"en_US": "English", "es_ES": "Español"}
+
+
+def set_locale(selected_locale):
+    try:
+        locale.setlocale(locale.LC_ALL, selected_locale)
+    except locale.Error:
+        print(
+            f"[WARNING] Failed to set locale {selected_locale}, falling back to default"
+        )
+        locale.setlocale(locale.LC_ALL, "")
+
+
+# Translations
+TRANSLATIONS = {
+    "en_US": {
+        "intelligence_data": "Intelligence Data",
+        "ssh_credentials": "SSH Credentials",
+        "ssh_commands": "SSH Commands",
+        "http_login_attempts": "HTTP Login Attempts",
+        "http_requests": "HTTP Requests",
+        "refresh": "Refresh Dashboard",
+        "country_distribution": "Country Distribution",
+    },
+    "es_ES": {
+        "intelligence_data": "Datos de Inteligencia",
+        "ssh_credentials": "Credenciales SSH",
+        "ssh_commands": "Comandos SSH",
+        "http_login_attempts": "Intentos de Inicio de Sesión HTTP",
+        "http_requests": "Solicitudes HTTP",
+        "refresh": "Actualizar Panel",
+        "country_distribution": "Distribución por País",
+    },
+}
+
+
+def get_translation(key, selected_locale="en_US"):
+    return TRANSLATIONS.get(selected_locale, TRANSLATIONS["en_US"]).get(key, key)
+
 
 # Pass log files to dataframe conversion with full paths
 ssh_creds_log_df = parse_creds_audits_log(ssh_creds_log_file_path)
@@ -65,7 +111,7 @@ assets_dir.mkdir(parents=True, exist_ok=True)
 # Default to a simple text title if image not found
 logo_path = assets_dir / "buzzpylogo.png"
 if logo_path.exists():
-    image = f"assets/images/{image}"  # Use relative path for Dash assets
+    image = f"assets/images/{image}"
 
 # Set the value to True in (public.env) if you want country code lookup as default.
 country = os.getenv("COUNTRY", "False")  # Default to False if not set
@@ -78,249 +124,483 @@ app._favicon = "images/buzzpyfavicon.ico"  # Use relative path for favicon
 
 # Service selection dropdown options
 service_options = [
-    {"label": "All Services", "value": "all"},
-    {"label": "SSH", "value": "ssh"},
-    {"label": "HTTP", "value": "http"},
+    {"label": translations["EN"]["services"]["all"], "value": "all"},
+    {"label": translations["EN"]["services"]["ssh"], "value": "ssh"},
+    {"label": translations["EN"]["services"]["http"], "value": "http"},
+]
+
+# Language selection dropdown options
+language_options = [
+    {"label": "EN", "value": "EN"},
+    {"label": "ES", "value": "ES"},
 ]
 
 
-def create_service_stats(selected_service):
+def create_service_stats(selected_service, selected_lang="EN"):
     """Create service-specific statistics based on selected service"""
     graphs = []
-    ssh_country_df = pd.DataFrame()
-    http_country_df = pd.DataFrame()
+    trans = translations[selected_lang]
+    ssh_country_df = pd.DataFrame()  # Initialize empty DataFrame
+    http_country_df = pd.DataFrame()  # Initialize empty DataFrame
 
-    if selected_service == "all" or selected_service == "ssh":
-        ssh_ip_data = top_10_calculator(ssh_creds_log_df, "ip_address")
-        ssh_user_data = top_10_calculator(ssh_creds_log_df, "username")
-        ssh_pass_data = top_10_calculator(ssh_creds_log_df, "password")
-        ssh_cmd_data = top_10_calculator(ssh_cmds_log_df, "Command")
-
+    try:
+        # Process country codes first if enabled
         if country == "True":
             try:
-                print("[DEBUG] Processing SSH country codes")
-                ssh_country_df = ip_to_country_code(ssh_creds_log_df)
+                if selected_service in ["all", "ssh"]:
+                    print("[DEBUG] Processing SSH country codes")
+                    ssh_country_df = ip_to_country_code(ssh_creds_log_df)
+
+                if selected_service in ["all", "http"]:
+                    print("[DEBUG] Processing HTTP country codes")
+                    combined_http_df = pd.concat(
+                        [
+                            http_creds_log_df[["ip_address"]],
+                            http_url_log_df[["ip_address"]],
+                        ]
+                    ).drop_duplicates()
+                    http_country_df = ip_to_country_code(combined_http_df)
             except Exception as e:
-                print(f"[ERROR] Failed to generate SSH country codes: {e}")
-                ssh_country_df = pd.DataFrame(
-                    {"Country_Code": ["Error"], "frequency": [0]}
+                print(f"[ERROR] Failed to process country codes: {e}")
+
+        if selected_service == "http" or selected_service == "all":
+            # Calculate HTTP statistics
+            http_ip_data = top_10_calculator(http_creds_log_df, "ip_address")
+            http_url_data = top_10_calculator(http_url_log_df, "url", truncate=True)
+            http_method_data = top_10_calculator(http_url_log_df, "method")
+
+            if not http_url_data.empty:
+                # Create URL graph with improved layout and hover info
+                url_fig = go.Figure(
+                    data=[
+                        go.Bar(
+                            x=http_url_data["url"],
+                            y=http_url_data["frequency"],
+                            text=None,
+                            showlegend=False,
+                            hovertemplate=f"<b>{trans['table']['url']}:</b> %{{x}}<br><b>{trans['graph']['frequency']}:</b> %{{y}}<extra></extra>",
+                        )
+                    ]
                 )
 
-        # Add SSH-only graphs when SSH is selected
-        if selected_service == "ssh":
-            graphs.extend(
-                [
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_ip_data,
-                                x="ip_address",
-                                y="frequency",
-                                title="Top 10 IP Addresses (SSH)",
+                url_fig.update_layout(
+                    template="solar",
+                    title={
+                        "text": f"{trans['graph']['top_10_urls']}<br><span style='font-size: 12px; color: gray'>{trans['graph']['hover_urls']}</span>",
+                        "xanchor": "left",
+                        "yanchor": "top",
+                    },
+                    xaxis={
+                        "showticklabels": False,
+                        "title": trans["table"]["url"],
+                        "showgrid": False,
+                    },
+                    yaxis={
+                        "title": trans["graph"]["frequency"],
+                        "showgrid": True,
+                        "gridcolor": "#073642",
+                    },
+                    height=450,
+                    margin={"t": 100, "b": 50, "l": 50, "r": 20},
+                    hoverlabel={"align": "left"},
+                    plot_bgcolor="#002b36",
+                    paper_bgcolor="#1e434a",
+                    bargap=0.2,
+                )
+
+                if selected_service == "http":
+                    graphs.extend(
+                        [
+                            dbc.Col(
+                                dcc.Graph(
+                                    figure=px.bar(
+                                        http_ip_data,
+                                        x="ip_address",
+                                        y="frequency",
+                                        title=trans["graph"]["top_10_ips_http"],
+                                        labels={
+                                            "ip_address": trans["table"]["ip_address"],
+                                            "frequency": trans["graph"]["frequency"],
+                                        },
+                                    ).update_layout(
+                                        yaxis_title=trans["graph"]["frequency"],
+                                        xaxis_title=trans["table"]["ip_address"],
+                                    )
+                                ),
+                                width=6,
+                            ),
+                            dbc.Col(
+                                dcc.Graph(figure=url_fig),
+                                width=6,
+                            ),
+                        ]
+                    )
+
+                    # Add HTTP method distribution graph
+                    if not http_method_data.empty:
+                        graphs.append(
+                            dbc.Col(
+                                dcc.Graph(
+                                    figure=px.bar(
+                                        http_method_data,
+                                        x="method",
+                                        y="frequency",
+                                        title=trans["http_methods"],
+                                        labels={
+                                            "method": trans["table"]["method"],
+                                            "frequency": trans["graph"]["frequency"],
+                                        },
+                                    ).update_layout(
+                                        yaxis_title=trans["graph"]["frequency"],
+                                        xaxis_title=trans["table"]["method"],
+                                    )
+                                ),
+                                width=12,
                             )
+                        )
+
+        if selected_service == "all" or selected_service == "ssh":
+            ssh_ip_data = top_10_calculator(ssh_creds_log_df, "ip_address")
+            ssh_user_data = top_10_calculator(ssh_creds_log_df, "username")
+            ssh_pass_data = top_10_calculator(ssh_creds_log_df, "password")
+            ssh_cmd_data = top_10_calculator(ssh_cmds_log_df, "Command")
+
+            # Ensure DataFrames are not empty before creating graphs
+            if not ssh_ip_data.empty and "frequency" in ssh_ip_data.columns:
+                if selected_service == "ssh":
+                    graphs.extend(
+                        [
+                            dbc.Col(
+                                dcc.Graph(
+                                    figure=px.bar(
+                                        ssh_ip_data,
+                                        x="ip_address",
+                                        y="frequency",
+                                        title=trans["graph"]["top_10_ips_ssh"],
+                                        labels={
+                                            "ip_address": trans["table"]["ip_address"],
+                                            "frequency": trans["graph"]["frequency"],
+                                        },
+                                    ).update_layout(
+                                        yaxis_title=trans["graph"]["frequency"],
+                                        xaxis_title=trans["table"]["ip_address"],
+                                    )
+                                ),
+                                width=6,
+                            ),
+                            dbc.Col(
+                                dcc.Graph(
+                                    figure=px.bar(
+                                        ssh_user_data,
+                                        x="username",
+                                        y="frequency",
+                                        title=trans["top_10_users"],
+                                        labels={
+                                            "username": trans["table"]["username"],
+                                            "frequency": trans["graph"]["frequency"],
+                                        },
+                                    ).update_layout(
+                                        yaxis_title=trans["graph"]["frequency"],
+                                        xaxis_title=trans["table"]["username"],
+                                    )
+                                ),
+                                width=6,
+                            ),
+                        ]
+                    )
+
+        if selected_service == "all" or selected_service == "http":
+            http_ip_data = top_10_calculator(http_url_log_df, "ip_address")
+            http_url_data = top_10_calculator(http_url_log_df, "url")
+            http_method_data = top_10_calculator(http_url_log_df, "method")
+
+            # Create URL graph with improved layout and hover info
+            url_fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=http_url_data["url"],
+                        y=http_url_data["frequency"],
+                        text=None,
+                        showlegend=False,
+                        hovertemplate=f"<b>{trans['table']['url']}:</b> %{{x}}<br><b>{trans['graph']['frequency']}:</b> %{{y}}<extra></extra>",
+                    )
+                ]
+            )
+
+            url_fig.update_layout(
+                template="solar",
+                title={
+                    "text": f"{trans['graph']['top_10_urls']}<br><span style='font-size: 12px; color: gray'>{trans['graph']['hover_urls']}</span>",
+                    "xanchor": "left",
+                    "yanchor": "top",
+                },
+                xaxis={
+                    "showticklabels": False,
+                    "title": trans["table"]["url"],
+                    "showgrid": False,
+                },
+                yaxis={
+                    "title": trans["graph"]["frequency"],
+                    "showgrid": True,
+                    "gridcolor": "#073642",
+                },
+                height=450,
+                margin={"t": 100, "b": 50, "l": 50, "r": 20},
+                hoverlabel={"align": "left"},
+                plot_bgcolor="#002b36",  # Solar theme plot background
+                paper_bgcolor="#1e434a",  # Solar theme paper background (border)
+                bargap=0.2,
+            )
+
+            if country == "True":
+                try:
+                    print("[DEBUG] Processing HTTP country codes")
+                    # Combine both HTTP logs for country code lookup
+                    combined_http_df = pd.concat(
+                        [
+                            http_creds_log_df[
+                                ["ip_address"]
+                            ],  # Put creds first as it has known good IPs
+                            http_url_log_df[["ip_address"]],
+                        ]
+                    ).drop_duplicates()
+
+                    http_country_df = ip_to_country_code(combined_http_df)
+                    print(f"[DEBUG] HTTP country DataFrame: {http_country_df.shape}")
+                    print("[DEBUG] HTTP country codes found:")
+                    print(http_country_df)
+                except Exception as e:
+                    print(f"[ERROR] Failed to generate HTTP country codes: {e}")
+                    http_country_df = pd.DataFrame(
+                        {"Country_Code": ["Error"], "frequency": [0]}
+                    )
+
+            if selected_service == "all":
+                graphs.extend(
+                    [
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=px.bar(
+                                    ssh_ip_data,
+                                    x="ip_address",
+                                    y="frequency",
+                                    title=trans["graph"]["top_10_ips_ssh"],
+                                    labels={
+                                        "ip_address": trans["table"]["ip_address"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["ip_address"],
+                                )
+                            ),
+                            width=6,
                         ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_user_data,
-                                x="username",
-                                y="frequency",
-                                title="Top 10 Usernames (SSH)",
-                            )
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=px.bar(
+                                    http_ip_data,
+                                    x="ip_address",
+                                    y="frequency",
+                                    title=trans["graph"]["top_10_ips_http"],
+                                    labels={
+                                        "ip_address": trans["table"]["ip_address"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["ip_address"],
+                                )
+                            ),
+                            width=6,
                         ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_pass_data,
-                                x="password",
-                                y="frequency",
-                                title="Top 10 Passwords (SSH)",
-                            )
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=px.bar(
+                                    ssh_user_data,
+                                    x="username",
+                                    y="frequency",
+                                    title=trans["top_10_users"],
+                                    labels={
+                                        "username": trans["table"]["username"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["username"],
+                                )
+                            ),
+                            width=6,
                         ),
-                        width=6,
-                    ),
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=url_fig,
+                            ),
+                            width=6,
+                        ),
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=px.bar(
+                                    ssh_pass_data,
+                                    x="password",
+                                    y="frequency",
+                                    title=trans["top_10_pass"],
+                                    labels={
+                                        "password": trans["table"]["password"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["password"],
+                                )
+                            ),
+                            width=6,
+                        ),
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=px.bar(
+                                    http_method_data,
+                                    x="method",
+                                    y="frequency",
+                                    title=trans["http_methods"],
+                                    labels={
+                                        "method": trans["table"]["method"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["method"],
+                                )
+                            ),
+                            width=6,
+                        ),
+                    ]
+                )
+
+                # Add country code graphs if enabled
+                if (
+                    country == "True"
+                    and not http_country_df.empty
+                    and not ssh_country_df.empty
+                ):
+                    graphs.extend(
+                        [
+                            dbc.Col(
+                                dcc.Graph(
+                                    figure=px.bar(
+                                        ssh_country_df,
+                                        x="Country_Code",
+                                        y="frequency",
+                                        title=trans["graph"]["country_dist_ssh"],
+                                        labels={
+                                            "Country_Code": trans["table"][
+                                                "country_code"
+                                            ],
+                                            "frequency": trans["graph"]["frequency"],
+                                        },
+                                    ).update_layout(
+                                        yaxis_title=trans["graph"]["frequency"],
+                                        xaxis_title=trans["table"]["country_code"],
+                                    )
+                                ),
+                                width=6,
+                            ),
+                            dbc.Col(
+                                dcc.Graph(
+                                    figure=px.bar(
+                                        http_country_df,
+                                        x="Country_Code",
+                                        y="frequency",
+                                        title=trans["graph"]["country_dist_http"],
+                                        labels={
+                                            "Country_Code": trans["table"][
+                                                "country_code"
+                                            ],
+                                            "frequency": trans["graph"]["frequency"],
+                                        },
+                                    ).update_layout(
+                                        yaxis_title=trans["graph"]["frequency"],
+                                        xaxis_title=trans["table"]["country_code"],
+                                    )
+                                ),
+                                width=6,
+                            ),
+                        ]
+                    )
+
+                graphs.append(
                     dbc.Col(
                         dcc.Graph(
                             figure=px.bar(
                                 ssh_cmd_data,
                                 x="Command",
                                 y="frequency",
-                                title="Top 10 SSH Commands",
-                            )
-                        ),
-                        width=6,
-                    ),
-                ]
-            )
-
-            # Add SSH country code graph if enabled
-            if country == "True" and not ssh_country_df.empty:
-                graphs.append(
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_country_df,
-                                x="Country_Code",
-                                y="frequency",
-                                title="Country Distribution (SSH)",
+                                title=trans["top_10_cmds"],
+                                labels={
+                                    "Command": trans["table"]["command"],
+                                    "frequency": trans["graph"]["frequency"],
+                                },
+                            ).update_layout(
+                                yaxis_title=trans["graph"]["frequency"],
+                                xaxis_title=trans["table"]["command"],
                             )
                         ),
                         width=12,
-                    )
+                    ),
                 )
-
-    if selected_service == "all" or selected_service == "http":
-        http_ip_data = top_10_calculator(http_url_log_df, "ip_address")
-        http_url_data = top_10_calculator(http_url_log_df, "url")
-        http_method_data = top_10_calculator(http_url_log_df, "method")
-
-        # Create URL graph with improved layout and hover info
-        url_fig = go.Figure(
-            data=[
-                go.Bar(
-                    x=http_url_data["url"],
-                    y=http_url_data["frequency"],
-                    text=None,
-                    showlegend=False,
-                    hovertemplate="<b>URL:</b> %{x}<br><b>Count:</b> %{y}<extra></extra>",
-                )
-            ]
-        )
-
-        url_fig.update_layout(
-            template="solar",
-            title={
-                "text": "Top 10 URLs (HTTP)<br><span style='font-size: 12px; color: gray'>Hover over bars to see full URLs</span>",
-                "xanchor": "left",
-                "yanchor": "top",
-            },
-            xaxis={
-                "showticklabels": False,
-                "title": "URLs",
-                "showgrid": False,
-            },
-            yaxis={"title": "Frequency", "showgrid": True, "gridcolor": "#073642"},
-            height=450,
-            margin={"t": 100, "b": 50, "l": 50, "r": 20},
-            hoverlabel={"align": "left"},
-            plot_bgcolor="#002b36",  # Solar theme plot background
-            paper_bgcolor="#1e434a",  # Solar theme paper background (border)
-            bargap=0.2,
-        )
-
-        if country == "True":
-            try:
-                print("[DEBUG] Processing HTTP country codes")
-                # Combine both HTTP logs for country code lookup
-                combined_http_df = pd.concat(
-                    [
-                        http_creds_log_df[
-                            ["ip_address"]
-                        ],  # Put creds first as it has known good IPs
-                        http_url_log_df[["ip_address"]],
-                    ]
-                ).drop_duplicates()
-
-                http_country_df = ip_to_country_code(combined_http_df)
-                print(f"[DEBUG] HTTP country DataFrame: {http_country_df.shape}")
-                print("[DEBUG] HTTP country codes found:")
-                print(http_country_df)
-            except Exception as e:
-                print(f"[ERROR] Failed to generate HTTP country codes: {e}")
-                http_country_df = pd.DataFrame(
-                    {"Country_Code": ["Error"], "frequency": [0]}
-                )
-
-        if selected_service == "all":
-            graphs.extend(
-                [
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_ip_data,
-                                x="ip_address",
-                                y="frequency",
-                                title="Top 10 IP Addresses (SSH)",
-                            )
-                        ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                http_ip_data,
-                                x="ip_address",
-                                y="frequency",
-                                title="Top 10 IP Addresses (HTTP)",
-                            )
-                        ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_user_data,
-                                x="username",
-                                y="frequency",
-                                title="Top 10 Usernames (SSH)",
-                            )
-                        ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=url_fig,
-                        ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                ssh_pass_data,
-                                x="password",
-                                y="frequency",
-                                title="Top 10 Passwords (SSH)",
-                            )
-                        ),
-                        width=6,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                http_method_data,
-                                x="method",
-                                y="frequency",
-                                title="HTTP Methods Distribution",
-                            )
-                        ),
-                        width=6,
-                    ),
-                ]
-            )
-
-            # Add country code graphs if enabled
-            if (
-                country == "True"
-                and not http_country_df.empty
-                and not ssh_country_df.empty
-            ):
+            else:  # http only
                 graphs.extend(
                     [
                         dbc.Col(
                             dcc.Graph(
                                 figure=px.bar(
-                                    ssh_country_df,
-                                    x="Country_Code",
+                                    http_ip_data,
+                                    x="ip_address",
                                     y="frequency",
-                                    title="Country Distribution (SSH)",
+                                    title=trans["graph"]["top_10_ips_http"],
+                                    labels={
+                                        "ip_address": trans["table"]["ip_address"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["ip_address"],
                                 )
                             ),
-                            width=6,
+                            width=4,
                         ),
+                        dbc.Col(
+                            dcc.Graph(figure=url_fig),
+                            width=4,
+                        ),
+                        dbc.Col(
+                            dcc.Graph(
+                                figure=px.bar(
+                                    http_method_data,
+                                    x="method",
+                                    y="frequency",
+                                    title=trans["http_methods"],
+                                    labels={
+                                        "method": trans["table"]["method"],
+                                        "frequency": trans["graph"]["frequency"],
+                                    },
+                                ).update_layout(
+                                    yaxis_title=trans["graph"]["frequency"],
+                                    xaxis_title=trans["table"]["method"],
+                                )
+                            ),
+                            width=4,
+                        ),
+                    ]
+                )
+
+                # Add HTTP country code graph if enabled
+                if (
+                    country == "True"
+                    and not http_country_df.empty
+                    and "Country_Code" in http_country_df.columns
+                ):
+                    graphs.append(
                         dbc.Col(
                             dcc.Graph(
                                 figure=px.bar(
@@ -330,84 +610,20 @@ def create_service_stats(selected_service):
                                     title="Country Distribution (HTTP)",
                                 )
                             ),
-                            width=6,
-                        ),
-                    ]
-                )
-
-            graphs.append(
-                dbc.Col(
-                    dcc.Graph(
-                        figure=px.bar(
-                            ssh_cmd_data,
-                            x="Command",
-                            y="frequency",
-                            title="Top 10 SSH Commands",
+                            width=12,
                         )
-                    ),
-                    width=12,
-                ),
-            )
-        else:  # http only
-            graphs.extend(
-                [
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                http_ip_data,
-                                x="ip_address",
-                                y="frequency",
-                                title="Top 10 IP Addresses",
-                            )
-                        ),
-                        width=4,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=url_fig,
-                        ),
-                        width=4,
-                    ),
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                http_method_data,
-                                x="method",
-                                y="frequency",
-                                title="HTTP Methods Distribution",
-                            )
-                        ),
-                        width=4,
-                    ),
-                ]
-            )
-
-            # Add HTTP country code graph if enabled
-            if (
-                country == "True"
-                and not http_country_df.empty
-                and "Country_Code" in http_country_df.columns
-            ):
-                graphs.append(
-                    dbc.Col(
-                        dcc.Graph(
-                            figure=px.bar(
-                                http_country_df,
-                                x="Country_Code",
-                                y="frequency",
-                                title="Country Distribution (HTTP)",
-                            )
-                        ),
-                        width=12,
                     )
-                )
 
-    return graphs
+        return graphs
+    except Exception as e:
+        print(f"[ERROR] Error in create_service_stats: {e}")
+        return []
 
 
-def create_data_tables(selected_service="all"):
+def create_data_tables(selected_service="all", selected_lang="en"):
     """Create data tables based on selected service"""
     tables = []
+    trans = translations[selected_lang]
 
     # Common table style settings
     table_style = {
@@ -441,13 +657,14 @@ def create_data_tables(selected_service="all"):
             tables.append(
                 html.Div(
                     [
-                        html.H4("SSH Credentials", className="text-center"),
+                        html.H4(trans["ssh_creds"], className="text-center"),
                         dash_table.DataTable(
                             id="ssh-creds-table",
                             columns=[
                                 {"name": i, "id": i} for i in sorted_creds_df.columns
                             ],
                             data=sorted_creds_df.to_dict("records"),
+                            sort_by=[{"column_id": "timestamp", "direction": "desc"}],
                             **table_style,
                         ),
                     ]
@@ -462,7 +679,7 @@ def create_data_tables(selected_service="all"):
             tables.append(
                 html.Div(
                     [
-                        html.H4("SSH Commands", className="text-center mt-4"),
+                        html.H4(trans["ssh_cmds"], className="text-center mt-4"),
                         dash_table.DataTable(
                             id="ssh-commands-table",
                             columns=[
@@ -484,7 +701,7 @@ def create_data_tables(selected_service="all"):
                         html.Div(
                             [
                                 html.H4(
-                                    "Country Code Distribution (SSH)",
+                                    trans["country_dist"] + " (SSH)",
                                     className="text-center mt-4",
                                 ),
                                 dash_table.DataTable(
@@ -511,7 +728,7 @@ def create_data_tables(selected_service="all"):
             tables.append(
                 html.Div(
                     [
-                        html.H4("HTTP Login Attempts", className="text-center mt-4"),
+                        html.H4(trans["http_login"], className="text-center mt-4"),
                         dash_table.DataTable(
                             id="http-creds-table",
                             columns=[
@@ -532,7 +749,7 @@ def create_data_tables(selected_service="all"):
             tables.append(
                 html.Div(
                     [
-                        html.H4("HTTP Requests", className="text-center mt-4"),
+                        html.H4(trans["http_reqs"], className="text-center mt-4"),
                         dash_table.DataTable(
                             id="http-urls-table",
                             columns=[
@@ -559,7 +776,7 @@ def create_data_tables(selected_service="all"):
                         html.Div(
                             [
                                 html.H4(
-                                    "Country Code Distribution (HTTP)",
+                                    trans["country_dist"] + " (HTTP)",
                                     className="text-center mt-4",
                                 ),
                                 dash_table.DataTable(
@@ -595,6 +812,9 @@ def refresh_data():
         print(f"[ERROR] Error refreshing data: {e}")
 
 
+# Get default translations
+default_trans = translations["EN"]
+
 # Define web application layout.
 app.layout = dbc.Container(
     [
@@ -603,7 +823,7 @@ app.layout = dbc.Container(
             interval=30 * 1000,  # Changed to 30 seconds from 10 seconds
             n_intervals=0,
         ),
-        # Honeypot Title and Service Selection
+        # Honeypot Title and Logo
         dbc.Row(
             dbc.Col(
                 html.Div(
@@ -620,26 +840,62 @@ app.layout = dbc.Container(
             ),
             justify="center",
         ),
-        dbc.Row(
-            dbc.Col(
+        # Controls Row with dropdowns and button
+dbc.Row(
+    dbc.Col(
+        html.Div(
+            [
+                dcc.Dropdown(
+                    id="language-selector",
+                    options=language_options,
+                    value="EN",
+                    style={
+                        "backgroundColor": "#b58900",
+                        "color": "white",
+                        "borderRadius": "8px",
+                        "width": "80px",
+                        "display": "inline-block",
+                        "marginRight": "10px",
+                    },
+                ),
                 dcc.Dropdown(
                     id="service-selector",
                     options=service_options,
                     value="all",
-                    style={"backgroundColor": "#deb439", "color": "#839496"},
+                    style={
+                        "backgroundColor": "#b58900",
+                        "color": "white",
+                        "borderRadius": "8px",
+                        "width": "400px",
+                        "display": "inline-block",
+                        "marginRight": "10px",
+                    },
                 ),
-                width=6,
-            ),
-            justify="center",
-            class_name="mb-4",
+                dbc.Button(
+                    default_trans["refresh_button"],
+                    id="refresh-button",
+                    color="primary",
+                    style={"display": "inline-block"},
+                ),
+            ],
+            style={
+                "display": "flex",
+                "justifyContent": "center",
+                "alignItems": "center",
+                "gap": "10px",
+            },
         ),
+        width=12,
+    ),
+    className="mb-4",
+),
         # Dynamic Graphs Section
         dbc.Row(id="graphs-container", align="center", class_name="mb-4"),
         # Intelligence Data Section
         html.Div(
             [
                 html.H3(
-                    "Intelligence Data",
+                    id="intelligence-title",
                     style={
                         "textAlign": "center",
                         "font-family": "Consolas, sans-serif",
@@ -655,19 +911,46 @@ app.layout = dbc.Container(
 
 
 @app.callback(
-    [Output("graphs-container", "children"), Output("tables-container", "children")],
-    [Input("service-selector", "value"), Input("interval-component", "n_intervals")],
+    [
+        Output("graphs-container", "children"),
+        Output("tables-container", "children"),
+        Output("intelligence-title", "children"),
+        Output("refresh-button", "children"),
+        Output("service-selector", "options"),
+    ],
+    [Input("refresh-button", "n_clicks"), Input("language-selector", "value")],
+    [State("service-selector", "value")],
 )
-def update_dashboard(selected_service, n):
-    """Update dashboard with optimized data refresh"""
+def update_dashboard(n_clicks, selected_lang, selected_service):
+    """Update dashboard with manual refresh and localization"""
     try:
+        print("[DEBUG] Refreshing data...")
         refresh_data()  # Refresh data from all log files
-        graphs = create_service_stats(selected_service)
-        tables = create_data_tables(selected_service)
-        return graphs, tables
+        trans = translations[selected_lang]
+
+        # Update service options with current language
+        service_opts = [
+            {"label": trans["services"][opt["value"]], "value": opt["value"]}
+            for opt in service_options
+        ]
+
+        graphs = create_service_stats(selected_service, selected_lang)
+        tables = create_data_tables(selected_service, selected_lang)
+
+        print("[DEBUG] Dashboard update completed successfully")
+        return graphs, tables, trans["title"], trans["refresh_button"], service_opts
     except Exception as e:
         print(f"[ERROR] Dashboard update failed: {e}")
-        return [], []  # Return empty lists on error to prevent dashboard crash
+        import traceback
+
+        print(traceback.format_exc())
+        return (
+            [],
+            [],
+            translations["EN"]["title"],
+            translations["EN"]["refresh_button"],
+            service_options,
+        )
 
 
 if __name__ == "__main__":

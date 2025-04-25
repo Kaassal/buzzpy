@@ -24,7 +24,7 @@ def parse_creds_audits_log(creds_audits_log_file):
         base_dir = str(Path(creds_audits_log_file).parent)
         # Use glob with correct pattern to find all rotated files
         log_files = glob.glob(f"{base_dir}/audits.log*")
-        
+
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
@@ -38,12 +38,14 @@ def parse_creds_audits_log(creds_audits_log_file):
                         # Use current timestamp if not present in log
                         if not timestamp:
                             timestamp = "No timestamp"
-                        data.append({
-                            "timestamp": timestamp,
-                            "ip_address": ip_address,
-                            "username": username,
-                            "password": password
-                        })
+                        data.append(
+                            {
+                                "timestamp": timestamp,
+                                "ip_address": ip_address,
+                                "username": username,
+                                "password": password,
+                            }
+                        )
 
         return pd.DataFrame(data)
     except Exception as e:
@@ -62,29 +64,35 @@ def clean_command_text(command):
             return next(group for group in match.groups() if group is not None)
     return command
 
+
 def parse_cmd_audits_log(cmd_audits_log_file):
     """Parse SSH command log file, including rotated files."""
     try:
         data = []
         base_dir = str(Path(cmd_audits_log_file).parent)
         log_files = glob.glob(f"{base_dir}/cmd_audits.log*")
-        
+
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
                     # Parse log format: "timestamp Command: command Client: IP"
-                    match = re.match(r"(?:(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) )?Command: (.*?) Client: (.*?)$", line.strip())
+                    match = re.match(
+                        r"(?:(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) )?Command: (.*?) Client: (.*?)$",
+                        line.strip(),
+                    )
                     if match:
                         timestamp, command, ip = match.groups()
                         if not timestamp:
                             timestamp = "No timestamp"
                         # Clean the command text before adding to data
                         cleaned_command = clean_command_text(command)
-                        data.append({
-                            "timestamp": timestamp,
-                            "Command": cleaned_command,
-                            "Client": ip
-                        })
+                        data.append(
+                            {
+                                "timestamp": timestamp,
+                                "Command": cleaned_command,
+                                "Client": ip,
+                            }
+                        )
 
         return pd.DataFrame(data)
     except Exception as e:
@@ -98,7 +106,7 @@ def parse_http_url_audits_log(http_url_audits_log_file):
         data = []
         base_dir = str(Path(http_url_audits_log_file).parent)
         log_files = glob.glob(f"{base_dir}/http_url_audits.log*")
-        
+
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
@@ -108,18 +116,22 @@ def parse_http_url_audits_log(http_url_audits_log_file):
                     )
                     if match:
                         timestamp, ip_address, method, url, args = match.groups()
-                        data.append({
-                            "timestamp": timestamp,
-                            "ip_address": ip_address,
-                            "method": method,
-                            "url": url,
-                            "args": args,
-                        })
+                        data.append(
+                            {
+                                "timestamp": timestamp,
+                                "ip_address": ip_address,
+                                "method": method,
+                                "url": url,
+                                "args": args,
+                            }
+                        )
 
         return pd.DataFrame(data)
     except Exception as e:
         print(f"Error parsing HTTP URL log: {e}")
-        return pd.DataFrame(columns=["timestamp", "ip_address", "method", "url", "args"])
+        return pd.DataFrame(
+            columns=["timestamp", "ip_address", "method", "url", "args"]
+        )
 
 
 def parse_http_creds_audits_log(http_audits_log_file):
@@ -128,7 +140,7 @@ def parse_http_creds_audits_log(http_audits_log_file):
         data = []
         base_dir = str(Path(http_audits_log_file).parent)
         log_files = glob.glob(f"{base_dir}/http_audits.log*")
-        
+
         for log_file in log_files:
             with open(log_file, "r") as file:
                 for line in file:
@@ -138,12 +150,14 @@ def parse_http_creds_audits_log(http_audits_log_file):
                     )
                     if match:
                         timestamp, ip_address, username, password = match.groups()
-                        data.append({
-                            "timestamp": timestamp,
-                            "ip_address": ip_address,
-                            "username": username,
-                            "password": password
-                        })
+                        data.append(
+                            {
+                                "timestamp": timestamp,
+                                "ip_address": ip_address,
+                                "username": username,
+                                "password": password,
+                            }
+                        )
         return pd.DataFrame(data)
     except Exception as e:
         print(f"Error parsing HTTP credentials log: {e}")
@@ -153,18 +167,24 @@ def parse_http_creds_audits_log(http_audits_log_file):
 # Calculator to generate top 10 values from a dataframe. Supply a column name, counts how often each value occurs, stores in "count" column, then return dataframe with value/count.
 def top_10_calculator(dataframe, column, truncate=False, max_length=30):
     """Calculate top 10 values from a column."""
-    if dataframe.empty or column not in dataframe.columns:
-        return pd.DataFrame({column: ["No Data"], "frequency": [0]})
+    try:
+        if dataframe.empty or column not in dataframe.columns:
+            return pd.DataFrame({column: ["No Data"], "frequency": [0]})
 
-    # Get value counts and convert to DataFrame with proper column names
-    counts = dataframe[column].value_counts().head(10)
-    result = pd.DataFrame({column: counts.index, "frequency": counts.values})
-    
-    # Truncate values if requested (e.g., for URLs)
-    if truncate:
-        result[column] = result[column].apply(lambda x: truncate_text(str(x), max_length))
+        # Get value counts and convert to DataFrame with proper column names
+        counts = dataframe[column].value_counts().head(10)
+        result = pd.DataFrame({column: counts.index, "frequency": counts.values})
 
-    return result
+        # Truncate values if requested (e.g., for URLs)
+        if truncate and column in result.columns:
+            result[column] = result[column].apply(
+                lambda x: truncate_text(str(x), max_length)
+            )
+
+        return result
+    except Exception as e:
+        print(f"[ERROR] Error in top_10_calculator: {e}")
+        return pd.DataFrame({column: ["Error"], "frequency": [0]})
 
 
 # Helper function to truncate long strings
@@ -175,6 +195,7 @@ def truncate_text(text, max_length=30):
 
 # Cache for country code lookups
 country_code_cache = {}
+
 
 @lru_cache(maxsize=1000)
 def get_country_code(ip):
@@ -191,18 +212,23 @@ def get_country_code(ip):
             data = response.json()
             ip_data = data.get("data", {})
             country_info = ip_data.get(ip, {})
-            result = [{"IP Address": ip, "Country_Code": country_info.get("country_code")}]
+            result = [
+                {"IP Address": ip, "Country_Code": country_info.get("country_code")}
+            ]
             country_code_cache[ip] = result
             return result
         elif response.status_code == 429:
             print(f"[!] CleanTalk Rate Limit hit for IP {ip}")
             return None
         else:
-            print(f"[!] Error: Unable to retrieve data for IP {ip}. Status code: {response.status_code}")
+            print(
+                f"[!] Error: Unable to retrieve data for IP {ip}. Status code: {response.status_code}"
+            )
             return None
     except requests.RequestException as e:
         print(f"[!] Request failed for IP {ip}: {e}")
         return None
+
 
 def ip_to_country_code(dataframe):
     """Convert IP addresses to country codes using the CleanTalk API with caching"""
@@ -216,7 +242,7 @@ def ip_to_country_code(dataframe):
     try:
         unique_ips = dataframe["ip_address"].unique()
         print(f"[DEBUG] Processing {len(unique_ips)} unique IPs")
-        
+
         for ip in unique_ips:
             if ip == "127.0.0.1" or ip == "localhost":
                 continue
@@ -225,9 +251,15 @@ def ip_to_country_code(dataframe):
                 get_country = get_country_code(ip)
                 if get_country and len(get_country) > 0:
                     country_code = get_country[0].get("Country_Code")
-                    if country_code and isinstance(country_code, str) and country_code not in ("Unknown", "Error", ""):
+                    if (
+                        country_code
+                        and isinstance(country_code, str)
+                        and country_code not in ("Unknown", "Error", "")
+                    ):
                         print(f"[DEBUG] IP {ip} -> {country_code}")
-                        country_counts[country_code] = country_counts.get(country_code, 0) + ip_counts[ip]
+                        country_counts[country_code] = (
+                            country_counts.get(country_code, 0) + ip_counts[ip]
+                        )
             except Exception as e:
                 print(f"[DEBUG] Error processing IP {ip}: {e}")
                 continue
@@ -235,20 +267,23 @@ def ip_to_country_code(dataframe):
         if not country_counts:
             return pd.DataFrame(columns=["Country_Code", "frequency"])
 
-        country_df = pd.DataFrame([
-            {"Country_Code": country, "frequency": count}
-            for country, count in country_counts.items()
-        ])
+        country_df = pd.DataFrame(
+            [
+                {"Country_Code": country, "frequency": count}
+                for country, count in country_counts.items()
+            ]
+        )
 
         if not country_df.empty:
             country_df = country_df.sort_values("frequency", ascending=False)
             print(f"[DEBUG] Created country code table with {len(country_df)} entries:")
             print(country_df)
-            
+
         return country_df.reset_index(drop=True)
 
     except Exception as e:
         print(f"[ERROR] Error in ip_to_country_code: {e}")
         import traceback
+
         print(traceback.format_exc())
         return pd.DataFrame(columns=["Country_Code", "frequency"])
