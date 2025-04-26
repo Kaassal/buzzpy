@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordPress Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/wordpressFavicon.ico">
+    <style>
+        body {
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
+            background: #f0f0f1;
+            color: #3c434a;
+            margin: 0;
+        }
+        #adminmenumain {
+            float: left;
+            width: 200px;
+            background: #1d2327;
+            height: 100vh;
+            position: fixed;
+        }
+        #wpcontent {
+            margin-left: 200px;
+            padding: 20px;
+        }
+        .menu-item {
+            padding: 8px 20px;
+            color: #fff;
+            cursor: pointer;
+        }
+        .menu-item:hover {
+            background: #2271b1;
+        }
+        .welcome-panel {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 1px rgba(0,0,0,.04);
+        }
+        .server-info {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .sensitive-data {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        pre {
+            background: #f0f0f1;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        .warning {
+            color: #d63638;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="adminmenumain">
+        <div class="menu-item">Dashboard</div>
+        <div class="menu-item">Posts</div>
+        <div class="menu-item">Media</div>
+        <div class="menu-item">Pages</div>
+        <div class="menu-item">Comments</div>
+        <div class="menu-item">Appearance</div>
+        <div class="menu-item">Plugins</div>
+        <div class="menu-item">Users</div>
+        <div class="menu-item">Tools</div>
+        <div class="menu-item">Settings</div>
+    </div>
+    <div id="wpcontent">
+        <div class="welcome-panel">
+            <h2>Welcome to WordPress!</h2>
+            <p>Note: System maintenance scheduled for tonight at 02:00 UTC. Database backup in progress.</p>
+        </div>
+        
+        <div class="server-info">
+            <h3>Server Information</h3>
+            <pre>
+Server Type: Apache/2.4.41 (Ubuntu)
+PHP Version: 7.4.3
+MySQL Version: 5.7.32
+Document Root: /var/www/html/wordpress
+Memory Limit: 256M
+Max Upload Size: 64M
+            </pre>
+        </div>
+
+        <div class="sensitive-data">
+            <h3>Database Configuration</h3>
+            <pre>
+define('DB_NAME', 'wp_production_db');
+define('DB_USER', 'wp_admin_user');
+define('DB_PASSWORD', 'Str0ngP@ssw0rd2023!');
+define('DB_HOST', 'localhost');
+
+// Backup Server (Development)
+define('BACKUP_DB_HOST', '192.168.1.100');
+define('BACKUP_DB_USER', 'backup_admin');
+define('BACKUP_DB_PASS', 'B@ckup2023Secure!');
+
+// API Keys
+define('AWS_ACCESS_KEY', 'AKIA5EXAMPLE7EXAMPLE');
+define('AWS_SECRET_KEY', '8x1234ExampleKey5678Example9012');
+            </pre>
+            <p class="warning">Remember to update all default credentials after installation!</p>
+        </div>
+    </div>
+</body>
+</html>

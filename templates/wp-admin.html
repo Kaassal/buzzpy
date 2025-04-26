@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
+    <link rel="icon" type="image/x-icon" href="/assets/images/wordpressFavicon.ico">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -23,8 +24,8 @@
             width: 100%;
         }
         .container img {
-            width: 200px; /* Adjust size as needed */
-            margin: 0 auto 20px; /* Center the image and add space below it */
+            width: 200px;
+            margin: 0 auto 20px;
             display: block;
         }
         h1 {
@@ -55,13 +56,24 @@
         input[type="submit"]:hover {
             background-color: #005177;
         }
+        .error-message {
+            color: #dc3232;
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #ffeaea;
+            border-left: 4px solid #dc3232;
+        }
     </style>
 </head>
 <body>
-
     <div class="container"> 
-        <!--Using a link for now should look into a static image-->
-        <img src="https://static.vecteezy.com/system/resources/thumbnails/020/975/579/small/wordpress-logo-wordpress-icon-transparent-free-png.png" alt="WordPress Logo">
+        <img src="{{ url_for('static', filename='images/wordpress-logo-wordpress-icon-transparent-free-png.png') }}" alt="WordPress Logo">
+        {% if error %}
+        <div class="error-message">
+            {{ error }}
+        </div>
+        {% endif %}
         <form action="/wp-admin-login" method="post">
             <div class="form-group">
                 <label for="username">Username:</label>

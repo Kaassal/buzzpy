@@ -1,0 +1,90 @@
+{
+    "EN": {
+        "title": "Intelligence Data",
+        "service_select": "Select Service",
+        "all_services": "All Services",
+        "refresh_button": "Refresh Dashboard",
+        "top_10_ips": "Top 10 IP Addresses",
+        "top_10_users": "Top 10 Usernames", 
+        "top_10_pass": "Top 10 Passwords",
+        "top_10_cmds": "Top 10 SSH Commands",
+        "country_dist": "Country Distribution",
+        "http_methods": "HTTP Methods Distribution",
+        "ssh_creds": "SSH Credentials",
+        "ssh_cmds": "SSH Commands",
+        "http_login": "HTTP Login Attempts",
+        "http_reqs": "HTTP Requests",
+        "graph": {
+            "top_10_ips_ssh": "Top 10 IP Addresses (SSH)",
+            "top_10_ips_http": "Top 10 IP Addresses (HTTP)",
+            "top_10_urls": "Top 10 URLs (HTTP)",
+            "hover_urls": "Hover over bars to see full URLs",
+            "urls_axis": "URLs",
+            "frequency": "Frequency",
+            "country_dist_ssh": "Country Distribution (SSH)",
+            "country_dist_http": "Country Distribution (HTTP)",
+            "distribution": "Distribution"
+        },
+        "table": {
+            "timestamp": "Timestamp",
+            "ip_address": "IP Address",
+            "username": "Username",
+            "password": "Password",
+            "command": "Command",
+            "url": "URL",
+            "method": "Method",
+            "country_code": "Country Code",
+            "frequency": "Frequency",
+            "args": "Arguments"
+        },
+        "services": {
+            "all": "All Services",
+            "ssh": "SSH",
+            "http": "HTTP"
+        }
+    },
+    "ES": {
+        "title": "Datos de Inteligencia",
+        "service_select": "Seleccionar Servicio",
+        "all_services": "Todos los Servicios",
+        "refresh_button": "Actualizar Panel",
+        "top_10_ips": "Top 10 Direcciones IP",
+        "top_10_users": "Top 10 Usuarios",
+        "top_10_pass": "Top 10 Contraseñas",
+        "top_10_cmds": "Top 10 Comandos SSH",
+        "country_dist": "Distribución por País",
+        "http_methods": "Distribución de Métodos HTTP",
+        "ssh_creds": "Credenciales SSH",
+        "ssh_cmds": "Comandos SSH",
+        "http_login": "Intentos de Login HTTP",
+        "http_reqs": "Peticiones HTTP",
+        "graph": {
+            "top_10_ips_ssh": "Top 10 Direcciones IP (SSH)",
+            "top_10_ips_http": "Top 10 Direcciones IP (HTTP)",
+            "top_10_urls": "Top 10 URLs (HTTP)",
+            "hover_urls": "Pasa el cursor sobre las barras para ver las URLs completas",
+            "urls_axis": "URLs",
+            "frequency": "Frecuencia",
+            "country_dist_ssh": "Distribución por País (SSH)",
+            "country_dist_http": "Distribución por País (HTTP)",
+            "distribution": "Distribución"
+        },
+        "table": {
+            "timestamp": "Marca de Tiempo",
+            "ip_address": "Dirección IP",
+            "username": "Usuario",
+            "password": "Contraseña",
+            "command": "Comando",
+            "url": "URL",
+            "method": "Método",
+            "country_code": "Código de País",
+            "frequency": "Frecuencia",
+            "args": "Argumentos"
+        },
+        "services": {
+            "all": "Todos los Servicios",
+            "ssh": "SSH",
+            "http": "HTTP"
+        }
+    }
+}
