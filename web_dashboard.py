@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import locale
 import json
+import time
 
 # Import project python file dependencies.
 from dashboard_data_parser import *
@@ -814,6 +815,98 @@ def refresh_data():
 # Get default translations
 default_trans = translations["EN"]
 
+# Create skeleton components for loading states
+def create_skeleton_graph():
+    """Create a skeleton loader for graphs"""
+    return html.Div(
+        className="skeleton-graph",
+        style={
+            "height": "400px",
+            "backgroundColor": "#073642",
+            "borderRadius": "8px",
+            "animation": "pulse 1.5s infinite",
+            "marginBottom": "20px"
+        }
+    )
+
+def create_skeleton_table():
+    """Create a skeleton loader for tables"""
+    rows = []
+    for i in range(5):  # Show 5 skeleton rows
+        rows.append(
+            html.Div(
+                className="skeleton-row",
+                style={
+                    "height": "40px",
+                    "backgroundColor": "#073642",
+                    "marginBottom": "8px",
+                    "borderRadius": "4px",
+                    "animation": "pulse 1.5s infinite",
+                    "animationDelay": f"{i * 0.1}s"
+                }
+            )
+        )
+    return html.Div(
+        children=rows,
+        style={
+            "padding": "16px",
+            "backgroundColor": "#002b36",
+            "borderRadius": "8px",
+            "marginBottom": "20px"
+        }
+    )
+
+# Add skeleton loading styles to the app layout
+app.index_string = """
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            @keyframes pulse {
+                0% { opacity: 0.6; }
+                50% { opacity: 1; }
+                100% { opacity: 0.6; }
+            }
+            .skeleton-graph, .skeleton-row {
+                position: relative;
+                overflow: hidden;
+            }
+            .skeleton-graph::after, .skeleton-row::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                transform: translateX(-100%);
+                background: linear-gradient(
+                    90deg,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.05) 50%,
+                    rgba(255, 255, 255, 0) 100%
+                );
+                animation: shimmer 2s infinite;
+            }
+            @keyframes shimmer {
+                100% { transform: translateX(100%); }
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+"""
+
 # Define web application layout.
 app.layout = dbc.Container(
     [
@@ -840,54 +933,64 @@ app.layout = dbc.Container(
             justify="center",
         ),
         # Controls Row with dropdowns and button
-dbc.Row(
-    dbc.Col(
-        html.Div(
-            [
-                dcc.Dropdown(
-                    id="language-selector",
-                    options=language_options,
-                    value="EN",
+        dbc.Row(
+            dbc.Col(
+                html.Div(
+                    [
+                        dcc.Dropdown(
+                            id="language-selector",
+                            options=language_options,
+                            value="EN",
+                            style={
+                                "backgroundColor": "#b58900",
+                                "color": "grey",
+                                "borderRadius": "8px",
+                                "width": "80px",
+                                "display": "inline-block",
+                                "marginRight": "10px",
+                            },
+                        ),
+                        dcc.Dropdown(
+                            id="service-selector",
+                            options=service_options,
+                            value="all",
+                            style={
+                                "backgroundColor": "#b58900",
+                                "color": "grey",
+                                "borderRadius": "8px",
+                                "width": "400px",
+                                "display": "inline-block",
+                                "marginRight": "10px",
+                            },
+                        ),
+                        dbc.Button(
+                            default_trans["refresh_button"],
+                            id="refresh-button",
+                            color="primary",
+                            style={"display": "inline-block"},
+                        ),
+                    ],
                     style={
-                        "backgroundColor": "#b58900",
-                        "color": "white",
-                        "borderRadius": "8px",
-                        "width": "80px",
-                        "display": "inline-block",
-                        "marginRight": "10px",
+                        "display": "flex",
+                        "justifyContent": "center",
+                        "alignItems": "center",
+                        "gap": "10px",
                     },
                 ),
-                dcc.Dropdown(
-                    id="service-selector",
-                    options=service_options,
-                    value="all",
-                    style={
-                        "backgroundColor": "#b58900",
-                        "color": "white",
-                        "borderRadius": "8px",
-                        "width": "400px",
-                        "display": "inline-block",
-                        "marginRight": "10px",
-                    },
-                ),
-                dbc.Button(
-                    default_trans["refresh_button"],
-                    id="refresh-button",
-                    color="primary",
-                    style={"display": "inline-block"},
-                ),
-            ],
-            style={
-                "display": "flex",
-                "justifyContent": "center",
-                "alignItems": "center",
-                "gap": "10px",
-            },
+                width=12,
+            ),
+            className="mb-4",
         ),
-        width=12,
-    ),
-    className="mb-4",
-),
+        # Loading container for graphs with skeleton state
+        dbc.Row(
+            id="skeleton-graphs",
+            children=[
+                dbc.Col(create_skeleton_graph(), width=6),
+                dbc.Col(create_skeleton_graph(), width=6),
+                dbc.Col(create_skeleton_graph(), width=6),
+                dbc.Col(create_skeleton_graph(), width=6),
+            ],
+        ),
         # Dynamic Graphs Section
         dbc.Row(id="graphs-container", align="center", class_name="mb-4"),
         # Intelligence Data Section
@@ -903,11 +1006,18 @@ dbc.Row(
                 ),
             ]
         ),
+        # Loading container for tables with skeleton state
+        html.Div(
+            id="skeleton-tables",
+            children=[
+                create_skeleton_table(),
+                create_skeleton_table(),
+            ],
+        ),
         # Data Tables Section
         html.Div(id="tables-container", className="dbc"),
     ]
 )
-
 
 @app.callback(
     [
@@ -916,6 +1026,8 @@ dbc.Row(
         Output("intelligence-title", "children"),
         Output("refresh-button", "children"),
         Output("service-selector", "options"),
+        Output("skeleton-graphs", "style"),
+        Output("skeleton-tables", "style"),
     ],
     [Input("refresh-button", "n_clicks"), Input("language-selector", "value")],
     [State("service-selector", "value")],
@@ -925,9 +1037,10 @@ def update_dashboard(n_clicks, selected_lang, selected_service):
     try:
         print("[DEBUG] Refreshing data...")
         refresh_data()  # Refresh data from all log files
+        # Add artificial delay to show loading state
+        time.sleep(0.5)
+        
         trans = translations[selected_lang]
-
-        # Update service options with current language
         service_opts = [
             {"label": trans["services"][opt["value"]], "value": opt["value"]}
             for opt in service_options
@@ -937,7 +1050,15 @@ def update_dashboard(n_clicks, selected_lang, selected_service):
         tables = create_data_tables(selected_service, selected_lang)
 
         print("[DEBUG] Dashboard update completed successfully")
-        return graphs, tables, trans["title"], trans["refresh_button"], service_opts
+        return (
+            graphs,
+            tables,
+            trans["title"],
+            trans["refresh_button"],
+            service_opts,
+            {"display": "none"},  # Hide skeleton graphs
+            {"display": "none"},  # Hide skeleton tables
+        )
     except Exception as e:
         print(f"[ERROR] Dashboard update failed: {e}")
         import traceback
@@ -949,6 +1070,8 @@ def update_dashboard(n_clicks, selected_lang, selected_service):
             translations["EN"]["title"],
             translations["EN"]["refresh_button"],
             service_options,
+            {"display": "none"},
+            {"display": "none"},
         )
 
 
