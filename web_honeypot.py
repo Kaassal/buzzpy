@@ -22,30 +22,38 @@ def get_strings(demo_mode=False):
     return DEMO_STRINGS if demo_mode else REAL_STRINGS
 
 # Logging setup
-LOGGING_FORMAT = logging.Formatter("%(asctime)s %(message)s")  # Fixed typo in message
+LOGGING_FORMAT = logging.Formatter("%(asctime)s %(message)s")
 
-# Logger for login attempts
-FUNNEL_LOGGER = logging.getLogger("HttpLogger")
-FUNNEL_LOGGER.setLevel(logging.INFO)
-FUNNEL_HANDLER = RotatingFileHandler(
-    "log_files/http_audits.log", maxBytes=2000, backupCount=5
-)
-FUNNEL_HANDLER.setFormatter(LOGGING_FORMAT)
-FUNNEL_LOGGER.addHandler(FUNNEL_HANDLER)
+# Configure loggers
+def configure_logger(name, filename):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    handler = RotatingFileHandler(
+        f"log_files/{filename}", maxBytes=2000, backupCount=5
+    )
+    handler.setFormatter(LOGGING_FORMAT)
+    logger.addHandler(handler)
+    return logger
 
-# Logger for URL paths
-URL_LOGGER = logging.getLogger("HttpUrlLogger")
-URL_LOGGER.setLevel(logging.INFO)
-URL_HANDLER = RotatingFileHandler(
-    "log_files/http_url_audits.log", maxBytes=2000, backupCount=5
-)
-URL_HANDLER.setFormatter(LOGGING_FORMAT)
-URL_LOGGER.addHandler(URL_HANDLER)
+# Initialize loggers
+FUNNEL_LOGGER = configure_logger("HttpLogger", "http_audits.log")
+URL_LOGGER = configure_logger("HttpUrlLogger", "http_url_audits.log")
 
-
-# Honeypot
-def web_honeypot(address, port=8080, input_username="admin", input_password="password", demo_mode=False):
-    app = Flask(__name__)
+def web_honeypot(
+    address, 
+    port=8080, 
+    input_username="admin", 
+    input_password="password", 
+    demo_mode=False
+):
+    # Initialize Flask with custom static configuration
+    app = Flask(
+        __name__,
+        static_folder='assets',        # Points to the assets directory
+        static_url_path='/assets',     # URL path for static files
+        template_folder='templates'    # Explicit template folder
+    )
+    
     strings = get_strings(demo_mode)
 
     @app.after_request
@@ -63,7 +71,6 @@ def web_honeypot(address, port=8080, input_username="admin", input_password="pas
         url = request.url
         args = dict(request.args)
 
-        # Log the full URL including query parameters
         URL_LOGGER.info(
             f"Client {ip_address} | Method: {method} | URL: {url} | Args: {args}"
         )
@@ -84,10 +91,9 @@ def web_honeypot(address, port=8080, input_username="admin", input_password="pas
 
         if username == input_username and password == input_password:
             return strings["success_message"]
-        else:
-            return render_template("wp-admin.html", error=strings["error_message"])
+        return render_template("wp-admin.html", error=strings["error_message"])
 
-    # Add routes that look like real WordPress paths to attract attackers
+    # WordPress-like routes
     @app.route("/wp-admin")
     def wp_admin():
         return redirect("/")
@@ -100,6 +106,5 @@ def web_honeypot(address, port=8080, input_username="admin", input_password="pas
     def xmlrpc():
         return "XML-RPC server accepts POST requests only.", 405
 
-    mode = "DEMO MODE" if demo_mode else "PRODUCTION MODE" 
-    print(f"Web honeypot listening on {address}:{port} ({mode})")
+    print(f"Web honeypot running on {address}:{port} ({'DEMO' if demo_mode else 'PROD'} MODE)")
     return app.run(debug=False, port=port, host=address, use_reloader=False)
