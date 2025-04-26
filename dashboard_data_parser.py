@@ -10,12 +10,12 @@ from functools import lru_cache
 # Each of these parsers takes the log file, gathers the specific information provided in the log, then returns the data in columns/rows Pandas dataframe type.
 
 # Update the log file name to match the new name in ssh_honeypot.py
-creds_audits_log_file = "log_files/audits.log"  # Updated to match the new name
-cmd_audits_log_file = "log_files/ssh_cmd_audits.log"  # Ensure consistency
-http_url_audits_log_file = "log_files/http_url_audits.log"  # New HTTP URL log file
+creds_audits_log_file = "log_files/audits.log"
+cmd_audits_log_file = "log_files/ssh_cmd_audits.log"
+http_url_audits_log_file = "log_files/http_url_audits.log"
 
 
-# Update the parsers to read all rotated log files.
+# Handling rotating files
 def parse_creds_audits_log(creds_audits_log_file):
     """Parse SSH credentials log file, including rotated files."""
     try:
@@ -35,7 +35,7 @@ def parse_creds_audits_log(creds_audits_log_file):
                     )
                     if match:
                         timestamp, ip_address, username, password = match.groups()
-                        # Use current timestamp if not present in log
+                        # Missing timestamp handling
                         if not timestamp:
                             timestamp = "No timestamp"
                         data.append(

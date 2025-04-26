@@ -815,6 +815,7 @@ def refresh_data():
 # Get default translations
 default_trans = translations["EN"]
 
+
 # Create skeleton components for loading states
 def create_skeleton_graph():
     """Create a skeleton loader for graphs"""
@@ -825,9 +826,10 @@ def create_skeleton_graph():
             "backgroundColor": "#073642",
             "borderRadius": "8px",
             "animation": "pulse 1.5s infinite",
-            "marginBottom": "20px"
-        }
+            "marginBottom": "20px",
+        },
     )
+
 
 def create_skeleton_table():
     """Create a skeleton loader for tables"""
@@ -842,8 +844,8 @@ def create_skeleton_table():
                     "marginBottom": "8px",
                     "borderRadius": "4px",
                     "animation": "pulse 1.5s infinite",
-                    "animationDelay": f"{i * 0.1}s"
-                }
+                    "animationDelay": f"{i * 0.1}s",
+                },
             )
         )
     return html.Div(
@@ -852,9 +854,10 @@ def create_skeleton_table():
             "padding": "16px",
             "backgroundColor": "#002b36",
             "borderRadius": "8px",
-            "marginBottom": "20px"
-        }
+            "marginBottom": "20px",
+        },
     )
+
 
 # Add skeleton loading styles to the app layout
 app.index_string = """
@@ -1019,6 +1022,7 @@ app.layout = dbc.Container(
     ]
 )
 
+
 @app.callback(
     [
         Output("graphs-container", "children"),
@@ -1039,7 +1043,7 @@ def update_dashboard(n_clicks, selected_lang, selected_service):
         refresh_data()  # Refresh data from all log files
         # Add artificial delay to show loading state
         time.sleep(0.5)
-        
+
         trans = translations[selected_lang]
         service_opts = [
             {"label": trans["services"][opt["value"]], "value": opt["value"]}

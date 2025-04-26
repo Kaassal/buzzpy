@@ -42,7 +42,7 @@ HONEYPOT_START_TIME = time.time()
 def get_uptime():
     """Generate a realistic uptime string based on honeypot runtime"""
     uptime_seconds = time.time() - HONEYPOT_START_TIME
-    # Add a base uptime to make it look like the system was running before
+    # Add a base uptime to make it look like the system was running beforehand
     base_uptime = 42 * 24 * 60 * 60  # 42 days in seconds
     total_seconds = base_uptime + uptime_seconds
 
