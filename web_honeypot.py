@@ -90,7 +90,7 @@ def web_honeypot(
         )
 
         if username == input_username and password == input_password:
-            return strings["success_message"]
+            return render_template("wp-dashboard.html")
         return render_template("wp-admin.html", error=strings["error_message"])
 
     # WordPress-like routes
