@@ -17,6 +17,16 @@ from pathlib import Path
 LOGGING_FORMAT = logging.Formatter("%(asctime)s %(message)s")
 HOST_KEY = paramiko.RSAKey(filename="server.key")
 
+# Ensure log directory exists
+log_dir = Path("log_files")
+log_dir.mkdir(exist_ok=True)
+
+# Create log files if they don't exist
+for log_file in ["audits.log", "cmd_audits.log"]:
+    log_path = log_dir / log_file
+    if not log_path.exists():
+        log_path.touch()
+
 # Update logging to ensure proper separation of credentials and commands.
 FUNNEL_LOGGER = logging.getLogger("FunnelLogger")
 FUNNEL_LOGGER.setLevel(logging.INFO)

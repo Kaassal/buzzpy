@@ -2,6 +2,17 @@
 import logging
 from flask import Flask, render_template, request, redirect, url_for
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+
+# Ensure log directory exists
+log_dir = Path("log_files")
+log_dir.mkdir(exist_ok=True)
+
+# Create log files if they don't exist
+for log_file in ["http_audits.log", "http_url_audits.log"]:
+    log_path = log_dir / log_file
+    if not log_path.exists():
+        log_path.touch()
 
 # String configurations for different modes
 DEMO_STRINGS = {
