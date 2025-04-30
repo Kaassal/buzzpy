@@ -1,4 +1,5 @@
 # Buzzpy
+[README-ES](https://github.com/Kaassal/buzzpy/blob/main/README-ES.md)
 
 Configurable honeypot system featuring a real-time dashboard for monitoring and analyzing intrusion attempts. Designed for security research and threat intelligence gathering.
 
