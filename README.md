@@ -8,29 +8,27 @@ The focus so far has been to add features and establish a direction for this too
 
 TLDR: **The use of these tool in production environments is not recomended as of now.**
 
-
 ## **Features**
 
 - [x] **SSH honeypot**
     - Simulates an SSH server to capture login attempts and commands.
     - Logs credentials and emulates a restricted shell environment with realistic responses.
     - Supports dynamic uptime, process list, and user session emulation.
-    - Rotating log files for efficient data management.
 
 - [x] **Web honeypot**
-    - Simulates a WordPress login page to capture login attempts and HTTP requests.
-    - Logs credentials, provides realistic server headers, and redirects unauthorized attempts.
-    - Configurable modes and customizable templates for enhanced flexibility.
+    - Simulates a WordPress login page and admin panel to capture login attempts and HTTP requests.
+    - Logs credentials and redirects unauthorized login attempts.
+    - Logs URL parameter separately to more easily identify web attacks.
 
 - [x] **Real-time dashboard**
-    - Interactive interface displaying captured data with visualizations like top IPs and geolocation analysis.
+    - Interactive interface displaying captured data intuitively like top IPs and geolocation analysis.
     - Supports filtering by service type, localization, and dynamic data refresh.
     - Built with Dash and Plotly for a modern and responsive user experience.
 
 - [x] **General features**
     - Modular and multi-threaded design for scalability and easy configuration.
     - Rotating log files to manage disk usage effectively.
-    - Environment variable support and `.gitignore` for secure and efficient development.
+    - Environment variable support and `.gitignore` that protects sensitive data such as RSA keys and logs for secure and efficient development.
     - **Demo mode**: Allows demonstration and testing with using obvious strings to easily tell the difference between a honeypot deployment and a real deployment. 
 
 
@@ -43,7 +41,7 @@ TLDR: **The use of these tool in production environments is not recomended as of
 git clone https://github.com/Kaassal/buzzpy.git
 ```
 
-2. **Set Up a Virtual Environment**  
+2. **Set up a virtual environment**  
 
 Create and activate a virtual environment to isolate dependencies:
 
@@ -53,7 +51,7 @@ Create a venv:
 python3 -m venv Buzzpy_venv
 ```
 
-And activate it
+And run it
 ```shel
 source /Buzzpy_venv/bin/activate
 ```
@@ -92,7 +90,7 @@ If you **do not want** to make api calls to check the country code of the logged
 COUNTRY=False
 ```
 
-**Note:** The country code lookup uses [this api](https://cleantalk.org/help/api-ip-info-country-code) by clean talk, there is a call limit but no api key is required.
+**Note:** The country code lookup uses [this api](https://cleantalk.org/help/api-ip-info-country-code) by clean talk, there is a call limit by minute but no api key is required.
 
 
 ## **Usage**
@@ -124,7 +122,7 @@ This starts the SSH honeypot on `127.0.0.1:2222` with the username `admin` and p
 ---
 
 ### **2. Web Honeypot**
-The web honeypot simulates a WordPress login page to capture login attempts and HTTP requests.
+The web honeypot simulates a WordPress login page and admin panel to capture login attempts and HTTP requests.
 
 #### **Command**
 ```bash
@@ -172,7 +170,7 @@ Open a web browser and navigate to `http://<address>:<port>` (e.g., `http://127.
 ---
 ### **4. Demo Mode**
 Demo mode can be enabled for both honeypots using the `-d` flag. In this mode:
-- The SSH honeypot uses demo strings (e.g., fake banners and responses).
+- The SSH honeypot uses demo strings (e.g., fake banners and responses including "honeypot").
 - The web honeypot displays demo server headers and WordPress version strings.
 
 #### **Example**
@@ -186,18 +184,31 @@ This starts the SSH honeypot in demo mode.
 ### **5. Logs**
 Captured data is stored in the `log_files` directory:
 - **SSH Honeypot Logs**:
-  - `audits.log`: Captures login attempts (username and password).
-  - `cmd_audits.log`: Captures commands executed by attackers.
+  - `audits.log`: Captures login attempts 
+	  - username 
+	  - password
+	  - timestamp
+	  - IP
+  - `cmd_audits.log`: Captures commands executed by attackers/auditors.
+  
 - **Web Honeypot Logs**:
   - `http_audits.log`: Captures login attempts (username and password).
-  - `http_url_audits.log`: Captures HTTP requests (URLs, methods, and query parameters).
+	  - username 
+	  - password
+	  - timestamp
+	  - IP
+  - `http_url_audits.log`: Captures HTTP requests 
+	  - URLs
+	  - Methods
+	  - Parameters
+	  - IP
+	  - timestamp
 
 Logs are rotated automatically to manage disk usage.
 
 **Note:** The log_files directory will be created automatically if it does not exist
 
 ---
-
 
 ## **Future features**
 
