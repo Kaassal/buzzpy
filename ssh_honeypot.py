@@ -231,6 +231,11 @@ def emulated_shell(channel, client_ip, demo_mode=False):
 
             # Special handling for cd command
             if command.startswith(b"cd"):
+                # Log the cd command before handling it
+                cleaned_command = clean_command(command)
+                if cleaned_command:
+                    log_command(cleaned_command, client_ip)
+
                 parts = command.split(None, 1)
                 if len(parts) == 1:  # just 'cd'
                     channel.send(b"-bash: cd: Permission denied\r\n")
