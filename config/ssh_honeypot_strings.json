@@ -15,7 +15,7 @@
         }
     },
     "real": {
-        "ssh_banner": "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.4",
+        "ssh_banner": "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2",
         "hostname": "ubuntu22-prod",
         "username": "mongodb",
         "shell_prompt": "mongodb@ubuntu22-prod:~$ ",
